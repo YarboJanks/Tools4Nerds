@@ -1,0 +1,7 @@
+<Bindings>
+  <Layer name="CCTracker">
+    <Action name="CCTRACKER_TOGGLE">
+      <Up>CCTracker_Toggle()</Up>
+    </Action>
+  </Layer>
+</Bindings>

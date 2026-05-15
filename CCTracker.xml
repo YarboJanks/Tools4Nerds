@@ -1,0 +1,12 @@
+<GuiXml>
+  <Controls>
+    <TopLevelControl name="CCTrackerContainer" hidden="true" mouseEnabled="false">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="0" offsetY="-120" />
+      <Controls>
+        <Label name="CCTrackerLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="CENTER" relativeTo="CCTrackerContainer" relativePoint="CENTER" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
+  </Controls>
+</GuiXml>
