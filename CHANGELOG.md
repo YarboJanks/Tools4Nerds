@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.3.0] - 2026-05-17
+### Added
+- Debuff counter — live count of negative effects currently on the player; draggable, resizable, and color-configurable with a settings section and test button
+- Debuff counter flashes rapidly when 6 or more debuffs are active as a visual warning
+
 ## [2.2.0] - 2026-05-16
 ### Added
 - Test buttons for CC immunity and block indicators in the settings panel

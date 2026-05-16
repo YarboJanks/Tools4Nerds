@@ -50,13 +50,16 @@ There are no automated tests. All validation must be done in-game.
 
 ## Changelog Rule
 
-**Always update `CHANGELOG.md` before considering any change done.** Use [Semantic Versioning](https://semver.org/):
+**Do not update `CHANGELOG.md` or bump the version mid-session.** Make all code changes freely. Only when the user signals they are ready to commit, do the following as a single step:
+
+1. Add an entry to `CHANGELOG.md` covering all changes made since the last version
+2. Update the version in **both** `Tools4Nerds.txt` (`## Version:`) and the `panelData.version` string inside `RegisterSettings()` in `Tools4Nerds.lua`
+
+Use [Semantic Versioning](https://semver.org/) when choosing the new version number:
 
 - **Patch** (`x.x.1`) — bug fixes, no new features
 - **Minor** (`x.1.0`) — new features, backwards compatible
 - **Major** (`2.0.0`) — breaking changes, significant renames or rewrites
-
-Also update the version in **both** `Tools4Nerds.txt` (`## Version:`) and the `panelData.version` string inside `RegisterSettings()` in `Tools4Nerds.lua` to match.
 
 ## README Rule
 
@@ -75,5 +78,7 @@ The `header.svg` file contains the ASCII art banner embedded at the top of the R
 ## No-Go List
 
 - Do not read enemy player buffs as the sole source of truth for CC immunity — it is unreliable in BGs/Cyrodiil; always ensure `ccImmuneTimes` inference is in place as a fallback
+- Do not use `GetNumBuffs("player")` to count player effects — it returns 0 in practice. Player debuff count is tracked via `EVENT_EFFECT_CHANGED` events and stored in the `debuffCount` local
+- In `EVENT_EFFECT_CHANGED`, the `buffType` parameter (position 10) is always an empty string — do not use it. Use `effectType` (position 11) instead: `1` = buff, `2` = debuff. Similarly, `changeType` values are raw integers: `1` = gained, `2` = faded, `3` = full refresh
 - Do not access `Tools4NerdsSV` or `Tools4NerdsAccountSV` directly from feature code — always go through `sv`. The only legitimate exception is the sync toggle in `RegisterSettings()`, which must copy settings between the two tables when switching scope.
 - Do not add `sleep` or long `zo_callLater` chains for polling — use the existing tick loop pattern
