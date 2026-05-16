@@ -14,11 +14,13 @@ local tickId = 0
 local tickScheduled = false
 local blockTimerId = 0
 local ccImmuneTimes = {}
+local debuffCount = 0
+local debuffFlashTimeline
 
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showDebuffCount", "debuffCountColor", "debuffCountSize" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -28,15 +30,18 @@ local function CopySettings(from, to)
 end
 
 local defaults = {
-    fontSize    = 36,
-    showCC      = true,
-    ccColor     = { r = 1,   g = 0.2, b = 0.2 },
-    showBlock   = true,
-    blockColor  = { r = 1,   g = 0.8, b = 0   },
-    showCrit    = true,
-    critSize    = 25,
-    critColor   = { r = 1,   g = 1,   b = 1   },
-    autoAccept  = true,
+    fontSize         = 36,
+    showCC           = true,
+    ccColor          = { r = 1,   g = 0.2, b = 0.2 },
+    showBlock        = true,
+    blockColor       = { r = 1,   g = 0.8, b = 0   },
+    showCrit         = true,
+    critSize         = 25,
+    critColor        = { r = 1,   g = 1,   b = 1   },
+    autoAccept       = true,
+    showDebuffCount  = true,
+    debuffCountColor = { r = 0.8, g = 0.4, b = 1.0 },
+    debuffCountSize  = 36,
 }
 
 local markerPool = {}
@@ -87,6 +92,42 @@ local function ApplySettings()
     local font = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.fontSize)
     T4NLabel:SetFont(font)
     T4NBlockLabel:SetFont(font)
+    local debuffFont = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.debuffCountSize)
+    T4NDebuffLabel:SetFont(debuffFont)
+end
+
+local function CountDebuffs()
+    return debuffCount
+end
+
+local function SetDebuffWarning(active)
+    if not debuffFlashTimeline then return end
+    if active then
+        if not debuffFlashTimeline:IsPlaying() then
+            debuffFlashTimeline:PlayFromStart()
+        end
+    else
+        debuffFlashTimeline:Stop()
+        T4NDebuffContainer:SetAlpha(1)
+    end
+end
+
+local function UpdateDebuffCounter()
+    if not sv.showDebuffCount then
+        T4NDebuffContainer:SetHidden(true)
+        SetDebuffWarning(false)
+        return
+    end
+    local hudActive = SCENE_MANAGER:IsShowing("hud") or SCENE_MANAGER:IsShowing("hudui")
+    if not hudActive then
+        T4NDebuffContainer:SetHidden(true)
+        SetDebuffWarning(false)
+        return
+    end
+    T4NDebuffLabel:SetText(tostring(CountDebuffs()))
+    T4NDebuffLabel:SetColor(sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1)
+    T4NDebuffContainer:SetHidden(false)
+    SetDebuffWarning(CountDebuffs() >= 6)
 end
 
 local function ShowBlockIndicator()
@@ -189,7 +230,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "2.2.0",
+        version            = "2.3.0",
     }
 
     local optionsData = {
@@ -317,6 +358,64 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Debuff Counter",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Debuff Counter",
+            tooltip = "Show a live count of negative effects currently on you.",
+            getFunc = function() return sv.showDebuffCount end,
+            setFunc = function(value)
+                sv.showDebuffCount = value
+                UpdateDebuffCounter()
+            end,
+        },
+        {
+            type    = "colorpicker",
+            name    = "Debuff Counter Color",
+            tooltip = "Color of the debuff counter text.",
+            getFunc = function() return sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1 end,
+            setFunc = function(r, g, b, a)
+                sv.debuffCountColor = { r = r, g = g, b = b }
+                UpdateDebuffCounter()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Counter Size",
+            tooltip = "Font size of the debuff counter.",
+            min     = 12,
+            max     = 72,
+            step    = 1,
+            getFunc = function() return sv.debuffCountSize end,
+            setFunc = function(value)
+                sv.debuffCountSize = value
+                T4NDebuffLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", value))
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Reset Position",
+            tooltip = "Move the debuff counter back to its default screen position.",
+            func    = function()
+                sv.debuffCountPos = nil
+                T4NDebuffContainer:ClearAnchors()
+                T4NDebuffContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 0)
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Test Debuff Counter",
+            tooltip = "Show the debuff counter with the current count.",
+            func    = function()
+                T4NDebuffLabel:SetText(tostring(CountDebuffs()))
+                T4NDebuffLabel:SetColor(sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1)
+                T4NDebuffContainer:SetHidden(false)
+                SetDebuffWarning(true)
+            end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -331,16 +430,23 @@ local function RegisterSettings()
             name    = "Reset to Defaults",
             tooltip = "Reset all settings to default values.",
             func    = function()
-                sv.fontSize   = defaults.fontSize
-                sv.showCC     = defaults.showCC
-                sv.ccColor    = { r = defaults.ccColor.r,    g = defaults.ccColor.g,    b = defaults.ccColor.b }
-                sv.showBlock  = defaults.showBlock
-                sv.blockColor = { r = defaults.blockColor.r, g = defaults.blockColor.g, b = defaults.blockColor.b }
-                sv.showCrit   = defaults.showCrit
-                sv.critSize   = defaults.critSize
-                sv.critColor  = { r = defaults.critColor.r,  g = defaults.critColor.g,  b = defaults.critColor.b }
-                sv.autoAccept = defaults.autoAccept
+                sv.fontSize         = defaults.fontSize
+                sv.showCC           = defaults.showCC
+                sv.ccColor          = { r = defaults.ccColor.r,          g = defaults.ccColor.g,          b = defaults.ccColor.b }
+                sv.showBlock        = defaults.showBlock
+                sv.blockColor       = { r = defaults.blockColor.r,       g = defaults.blockColor.g,       b = defaults.blockColor.b }
+                sv.showCrit         = defaults.showCrit
+                sv.critSize         = defaults.critSize
+                sv.critColor        = { r = defaults.critColor.r,        g = defaults.critColor.g,        b = defaults.critColor.b }
+                sv.autoAccept       = defaults.autoAccept
+                sv.showDebuffCount  = defaults.showDebuffCount
+                sv.debuffCountColor = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b }
+                sv.debuffCountSize  = defaults.debuffCountSize
+                sv.debuffCountPos   = nil
+                T4NDebuffContainer:ClearAnchors()
+                T4NDebuffContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 0)
                 ApplySettings()
+                UpdateDebuffCounter()
                 if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
         },
@@ -448,25 +554,73 @@ local function OnAddOnLoaded(eventCode, addOnName)
 
     sv = accountSv.syncAccount and accountSv or Tools4NerdsSV
 
-    if sv.fontSize   == nil then sv.fontSize   = defaults.fontSize end
-    if sv.showCC     == nil then sv.showCC     = defaults.showCC end
-    if sv.ccColor    == nil then sv.ccColor    = { r = defaults.ccColor.r,    g = defaults.ccColor.g,    b = defaults.ccColor.b } end
-    if sv.showBlock  == nil then sv.showBlock  = defaults.showBlock end
-    if sv.blockColor == nil then sv.blockColor = { r = defaults.blockColor.r, g = defaults.blockColor.g, b = defaults.blockColor.b } end
-    if sv.showCrit   == nil then sv.showCrit   = defaults.showCrit end
-    if sv.critSize   == nil then sv.critSize   = defaults.critSize end
-    if sv.critColor  == nil then sv.critColor  = { r = defaults.critColor.r,  g = defaults.critColor.g,  b = defaults.critColor.b } end
-    if sv.autoAccept == nil then sv.autoAccept = defaults.autoAccept end
+    if sv.fontSize         == nil then sv.fontSize         = defaults.fontSize end
+    if sv.showCC           == nil then sv.showCC           = defaults.showCC end
+    if sv.ccColor          == nil then sv.ccColor          = { r = defaults.ccColor.r,          g = defaults.ccColor.g,          b = defaults.ccColor.b } end
+    if sv.showBlock        == nil then sv.showBlock        = defaults.showBlock end
+    if sv.blockColor       == nil then sv.blockColor       = { r = defaults.blockColor.r,       g = defaults.blockColor.g,       b = defaults.blockColor.b } end
+    if sv.showCrit         == nil then sv.showCrit         = defaults.showCrit end
+    if sv.critSize         == nil then sv.critSize         = defaults.critSize end
+    if sv.critColor        == nil then sv.critColor        = { r = defaults.critColor.r,        g = defaults.critColor.g,        b = defaults.critColor.b } end
+    if sv.autoAccept       == nil then sv.autoAccept       = defaults.autoAccept end
+    if sv.showDebuffCount  == nil then sv.showDebuffCount  = defaults.showDebuffCount end
+    if sv.debuffCountColor == nil then sv.debuffCountColor = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b } end
+    if sv.debuffCountSize  == nil then sv.debuffCountSize  = defaults.debuffCountSize end
 
     ApplySettings()
     CreateMarkerPool()
     RegisterSettings()
     HookNameplates()
 
+    -- set up debuff counter container (draggable, restore saved position)
+    T4NDebuffContainer:SetResizeToFitDescendents(true)
+    if sv.debuffCountPos then
+        T4NDebuffContainer:ClearAnchors()
+        T4NDebuffContainer:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sv.debuffCountPos.x, sv.debuffCountPos.y)
+    end
+    T4NDebuffContainer:SetHandler("OnMoveStop", function()
+        sv.debuffCountPos = { x = T4NDebuffContainer:GetLeft(), y = T4NDebuffContainer:GetTop() }
+    end)
+    UpdateDebuffCounter()
+
+    -- flash for warning state (>= 6 debuffs)
+    debuffFlashTimeline = ANIMATION_MANAGER:CreateTimeline()
+    debuffFlashTimeline:SetPlaybackType(ANIMATION_PLAYBACK_LOOP)
+    local flashOut = debuffFlashTimeline:InsertAnimation(ANIMATION_ALPHA, T4NDebuffContainer, 0)
+    flashOut:SetStartAlpha(1)
+    flashOut:SetEndAlpha(0.15)
+    flashOut:SetDuration(200)
+    local flashIn = debuffFlashTimeline:InsertAnimation(ANIMATION_ALPHA, T4NDebuffContainer, 200)
+    flashIn:SetStartAlpha(0.15)
+    flashIn:SetEndAlpha(1)
+    flashIn:SetDuration(200)
+    debuffFlashTimeline:SetHandler("OnStop", function()
+        T4NDebuffContainer:SetAlpha(1)
+    end)
+
+    local function OnHUDSceneChange(oldState, newState)
+        UpdateDebuffCounter()
+    end
+    local hudScene   = SCENE_MANAGER:GetScene("hud")
+    local hudUIScene = SCENE_MANAGER:GetScene("hudui")
+    if hudScene   then hudScene:RegisterCallback("StateChange",   OnHUDSceneChange) end
+    if hudUIScene then hudUIScene:RegisterCallback("StateChange", OnHUDSceneChange) end
+
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,               OnCombatStateChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_RETICLE_TARGET_CHANGED,            OnTargetChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED,                    OnEffectChanged)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Debuff", EVENT_EFFECT_CHANGED,
+        function(_, changeType, _, _, unitTag, _, _, _, _, _, effectType)
+            if unitTag ~= "player" then return end
+            if effectType ~= 2 then return end  -- 2 = debuff, confirmed from event data
+            if changeType == 1 then             -- 1 = gained
+                debuffCount = debuffCount + 1
+            elseif changeType == 2 then         -- 2 = faded
+                debuffCount = math.max(0, debuffCount - 1)
+            end
+            UpdateDebuffCounter()
+        end)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
 
@@ -488,13 +642,32 @@ local function OnAddOnLoaded(eventCode, addOnName)
             local targetName = GetUnitName("reticleover"):gsub("%^.*", "")
             local expiry = ccImmuneTimes[targetName]
             local inferredRemaining = expiry and math.max(0, expiry - GetFrameTimeSeconds()) or nil
-            d(string.format("[T4N] inCombat=%s | unitType=%d | isPlayer=%s | numBuffs=%d | buffCC=%s | buffRemaining=%s | inferredCC=%s | tickScheduled=%s",
-                tostring(inCombat), unitType, tostring(isPlayer), numBuffs, tostring(foundCC),
+            local numDebuffs = CountDebuffs()
+            d(string.format("[T4N] inCombat=%s | unitType=%d | isPlayer=%s | numBuffs=%d | numDebuffs=%d | buffCC=%s | buffRemaining=%s | inferredCC=%s | tickScheduled=%s",
+                tostring(inCombat), unitType, tostring(isPlayer), numBuffs, numDebuffs, tostring(foundCC),
                 ccRemaining and string.format("%.2f", ccRemaining) or "nil",
                 inferredRemaining and string.format("%.2f", inferredRemaining) or "nil",
                 tostring(tickScheduled)))
+        elseif args == "debugfx" then
+            local count = 0
+            local limit = 15
+            d(string.format("[T4N] Listening for next %d effect change events on any unit...", limit))
+            EVENT_MANAGER:RegisterForEvent("T4NDebugFX", EVENT_EFFECT_CHANGED,
+                function(_, changeType, effectSlot, effectName, unitTag, _, _, stackCount, _, buffType, effectType)
+                    if count >= limit then
+                        EVENT_MANAGER:UnregisterForEvent("T4NDebugFX", EVENT_EFFECT_CHANGED)
+                        return
+                    end
+                    count = count + 1
+                    d(string.format("[T4NFX %d] unit=%-12s change=%-3s buff=%-3s effect=%-3s slot=%s stack=%s name=%s",
+                        count, tostring(unitTag), tostring(changeType), tostring(buffType), tostring(effectType), tostring(effectSlot), tostring(stackCount), tostring(effectName)))
+                end)
+            zo_callLater(function()
+                EVENT_MANAGER:UnregisterForEvent("T4NDebugFX", EVENT_EFFECT_CHANGED)
+                d("[T4N] debugfx stopped (timeout)")
+            end, 30000)
         else
-            d("[T4N] Commands: /t4n debug")
+            d("[T4N] Commands: /t4n debug | /t4n debugfx")
         end
     end
 end

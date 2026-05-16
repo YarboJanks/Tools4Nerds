@@ -20,5 +20,13 @@
       <Anchor point="TOPLEFT" relativeTo="GuiRoot" relativePoint="TOPLEFT" />
       <Anchor point="BOTTOMRIGHT" relativeTo="GuiRoot" relativePoint="BOTTOMRIGHT" />
     </TopLevelControl>
+    <TopLevelControl name="T4NDebuffContainer" hidden="true" mouseEnabled="true" movable="true" clampedToScreen="true">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="200" offsetY="0" />
+      <Controls>
+        <Label name="T4NDebuffLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="TOPLEFT" relativeTo="T4NDebuffContainer" relativePoint="TOPLEFT" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
   </Controls>
 </GuiXml>
