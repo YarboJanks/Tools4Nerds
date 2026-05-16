@@ -7,14 +7,7 @@ local POOL_SIZE = 10
 local MARKER_DURATION = 700
 local SPREAD_RADIUS = 60
 
-local CC_RESULTS = {
-    [ACTION_RESULT_STUNNED]      = true,
-    [ACTION_RESULT_KNOCKBACK]    = true,
-    [ACTION_RESULT_KNOCKDOWN]    = true,
-    [ACTION_RESULT_DISORIENTED]  = true,
-    [ACTION_RESULT_FEARED]       = true,
-    [ACTION_RESULT_LEVITATED]    = true,
-}
+local CC_RESULTS = {}
 
 local enabled = true
 local tickId = 0
@@ -162,14 +155,19 @@ end
 local function RegisterSettings()
     local LAM = LibAddonMenu2
     if not LAM then return end
+    if LAM.util and LAM.util.RequestRefreshIfNeeded then
+        local origRefresh = LAM.util.RequestRefreshIfNeeded
+        LAM.util.RequestRefreshIfNeeded = function(control)
+            if LAM.applyButton then origRefresh(control) end
+        end
+    end
 
     local panelData = {
         type               = "panel",
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "1.0.0",
-        registerForRefresh = true,
+        version            = "2.0.0",
     }
 
     local optionsData = {
@@ -178,13 +176,13 @@ local function RegisterSettings()
             name = "General",
         },
         {
-            type    = "checkbox",
-            name    = "Sync Settings Account-Wide",
-            tooltip = "Use the same settings across all characters on this account. Toggling copies your current settings to the new scope.",
-            getFunc = function() return accountSv.syncAccount end,
-            setFunc = function(value)
+            type      = "button",
+            name      = accountSv.syncAccount and "Account-Wide Sync: |c00FF00ON|r  (click to disable)" or "Account-Wide Sync: |cFF4444OFF|r  (click to enable)",
+            tooltip   = "Use the same settings across all characters on this account. Clicking copies your current settings to the new scope.",
+            reference = "T4NAccountSyncButton",
+            func      = function()
                 local old = sv
-                if value then
+                if not accountSv.syncAccount then
                     CopySettings(old, accountSv)
                     accountSv.syncAccount = true
                     sv = accountSv
@@ -194,7 +192,10 @@ local function RegisterSettings()
                     sv = Tools4NerdsSV
                 end
                 ApplySettings()
-                LAM:RefreshPanel(ADDON_NAME .. "Panel")
+                if T4NAccountSyncButton and T4NAccountSyncButton.button then
+                    local label = accountSv.syncAccount and "Account-Wide Sync: |c00FF00ON|r  (click to disable)" or "Account-Wide Sync: |cFF4444OFF|r  (click to enable)"
+                    T4NAccountSyncButton.button:SetText(label)
+                end
             end,
         },
         {
@@ -306,7 +307,7 @@ local function RegisterSettings()
                 sv.critColor  = { r = defaults.critColor.r,  g = defaults.critColor.g,  b = defaults.critColor.b }
                 sv.autoAccept = defaults.autoAccept
                 ApplySettings()
-                LAM:RefreshPanel(ADDON_NAME .. "Panel")
+                if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
         },
     }
@@ -398,6 +399,13 @@ end
 local function OnAddOnLoaded(eventCode, addOnName)
     if addOnName ~= ADDON_NAME then return end
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED)
+
+    if ACTION_RESULT_STUNNED     then CC_RESULTS[ACTION_RESULT_STUNNED]     = true end
+    if ACTION_RESULT_KNOCKBACK   then CC_RESULTS[ACTION_RESULT_KNOCKBACK]   = true end
+    if ACTION_RESULT_KNOCKDOWN   then CC_RESULTS[ACTION_RESULT_KNOCKDOWN]   = true end
+    if ACTION_RESULT_DISORIENTED then CC_RESULTS[ACTION_RESULT_DISORIENTED] = true end
+    if ACTION_RESULT_FEARED      then CC_RESULTS[ACTION_RESULT_FEARED]      = true end
+    if ACTION_RESULT_LEVITATED   then CC_RESULTS[ACTION_RESULT_LEVITATED]   = true end
 
     Tools4NerdsSV        = Tools4NerdsSV or {}
     Tools4NerdsAccountSV = Tools4NerdsAccountSV or {}
