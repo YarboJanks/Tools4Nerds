@@ -1,5 +1,5 @@
 ## Title: |cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r
-## Description: CC immunity tracker, block indicator, crit hit marker, and auto queue accept
+## Description: Various Tools 4 Nerds
 ## Author: |cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r
 ## Version: 2.2.0
 ## APIVersion: 101049

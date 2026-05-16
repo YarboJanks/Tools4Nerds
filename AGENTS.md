@@ -58,6 +58,20 @@ There are no automated tests. All validation must be done in-game.
 
 Also update the version in **both** `Tools4Nerds.txt` (`## Version:`) and the `panelData.version` string inside `RegisterSettings()` in `Tools4Nerds.lua` to match.
 
+## README Rule
+
+**Always update `README.md` when any of the following change:**
+
+- A feature is added, removed, or renamed
+- A setting is added, removed, or its behaviour changes
+- A slash command is added, removed, or its output changes
+- Installation requirements change (e.g. new dependencies)
+- The keybinding or its behaviour changes
+
+The README is user-facing — keep it accurate and in plain language. Do not document internal implementation details there; those belong in `AGENTS.md`.
+
+The `header.svg` file contains the ASCII art banner embedded at the top of the README. It does not need to be updated for routine changes, but should be regenerated if the addon is renamed.
+
 ## No-Go List
 
 - Do not read enemy player buffs as the sole source of truth for CC immunity — it is unreliable in BGs/Cyrodiil; always ensure `ccImmuneTimes` inference is in place as a fallback
