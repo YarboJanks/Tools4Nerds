@@ -15,6 +15,9 @@ Briefly shows a "Blocking" label when your attack is blocked, giving you immedia
 ### Crit Hit Marker
 Plays an animated overlay on your screen when you land a critical hit. Size and color are configurable.
 
+### Debuff Counter
+Displays a live count of negative effects currently active on you. When the count reaches 6 or more, the counter flashes rapidly as a warning. The counter is draggable — click and drag it anywhere on screen. Font size and color are configurable independently of the other indicators.
+
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
 
@@ -43,6 +46,10 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Enable Crit Hit Marker | Toggle the crit overlay |
 | Marker Size | Size of the crit marker in pixels |
 | Marker Color | Color tint of the crit marker (white = no tint) |
+| Enable Debuff Counter | Toggle the debuff counter |
+| Debuff Counter Color | Color of the debuff counter text |
+| Counter Size | Font size of the debuff counter |
+| Reset Position | Snap the debuff counter back to its default position |
 | Auto Accept Queue | Toggle automatic queue acceptance |
 
 Each section also has a **Test** button to preview how that indicator looks without needing to be in combat.
