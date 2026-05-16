@@ -89,6 +89,28 @@ local function ApplySettings()
     T4NBlockLabel:SetFont(font)
 end
 
+local function ShowBlockIndicator()
+    blockTimerId = blockTimerId + 1
+    local myId = blockTimerId
+    T4NBlockLabel:SetText("Blocking")
+    T4NBlockLabel:SetColor(sv.blockColor.r, sv.blockColor.g, sv.blockColor.b, 1)
+    T4NBlockContainer:SetHidden(false)
+    zo_callLater(function()
+        if blockTimerId == myId then
+            T4NBlockContainer:SetHidden(true)
+        end
+    end, 1500)
+end
+
+local function ShowCCIndicator()
+    T4NLabel:SetText(string.format("CC  %.1fs", CC_IMMUNITY_DURATION))
+    T4NLabel:SetColor(sv.ccColor.r, sv.ccColor.g, sv.ccColor.b, 1)
+    T4NCCContainer:SetHidden(false)
+    zo_callLater(function()
+        T4NCCContainer:SetHidden(true)
+    end, 2000)
+end
+
 local function GetCCImmunityRemaining()
     for i = 1, GetNumBuffs("reticleover") do
         local _, _, timeEnding, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo("reticleover", i)
@@ -230,6 +252,12 @@ local function RegisterSettings()
             setFunc = function(r, g, b, a) sv.ccColor = { r = r, g = g, b = b } end,
         },
         {
+            type    = "button",
+            name    = "Test CC Indicator",
+            tooltip = "Trigger a test CC immunity indicator.",
+            func    = function() ShowCCIndicator() end,
+        },
+        {
             type = "header",
             name = "Block Status",
         },
@@ -246,6 +274,12 @@ local function RegisterSettings()
             tooltip = "Color of the blocking indicator text.",
             getFunc = function() return sv.blockColor.r, sv.blockColor.g, sv.blockColor.b, 1 end,
             setFunc = function(r, g, b, a) sv.blockColor = { r = r, g = g, b = b } end,
+        },
+        {
+            type    = "button",
+            name    = "Test Block Indicator",
+            tooltip = "Trigger a test block indicator.",
+            func    = function() ShowBlockIndicator() end,
         },
         {
             type = "header",
@@ -435,6 +469,34 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
+
+    SLASH_COMMANDS["/t4n"] = function(args)
+        if args == "debug" then
+            local inCombat    = IsUnitInCombat("player")
+            local unitType    = GetUnitType("reticleover")
+            local isPlayer    = unitType == UNIT_TYPE_PLAYER
+            local numBuffs    = GetNumBuffs("reticleover")
+            local foundCC     = false
+            local ccRemaining = nil
+            for i = 1, numBuffs do
+                local _, _, timeEnding, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo("reticleover", i)
+                if abilityId == CC_IMMUNITY_ID then
+                    foundCC = true
+                    ccRemaining = math.max(0, timeEnding - GetFrameTimeSeconds())
+                end
+            end
+            local targetName = GetUnitName("reticleover"):gsub("%^.*", "")
+            local expiry = ccImmuneTimes[targetName]
+            local inferredRemaining = expiry and math.max(0, expiry - GetFrameTimeSeconds()) or nil
+            d(string.format("[T4N] inCombat=%s | unitType=%d | isPlayer=%s | numBuffs=%d | buffCC=%s | buffRemaining=%s | inferredCC=%s | tickScheduled=%s",
+                tostring(inCombat), unitType, tostring(isPlayer), numBuffs, tostring(foundCC),
+                ccRemaining and string.format("%.2f", ccRemaining) or "nil",
+                inferredRemaining and string.format("%.2f", inferredRemaining) or "nil",
+                tostring(tickScheduled)))
+        else
+            d("[T4N] Commands: /t4n debug")
+        end
+    end
 end
 
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
