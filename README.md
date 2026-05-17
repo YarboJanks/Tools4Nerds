@@ -19,7 +19,7 @@ Plays an animated overlay on your screen when you land a critical hit. Size and 
 Displays a live count of negative effects currently active on you. When the count reaches 6 or more, the counter flashes rapidly as a warning. The counter is draggable — click and drag it anywhere on screen. Font size and color are configurable independently of the other indicators.
 
 ### Mara's Balm Tracker
-Displays **MARAS** in green when Mara's Balm is off cooldown. When on cooldown, shows **MARAS 24s** (counting down) in red until it's ready again. Draggable — click and drag to reposition. Font size is configurable.
+Automatically appears when 5 or more pieces of the Mara's Balm set are equipped (including backbar weapons) and hides when the set is removed. Displays **MARAS** in green when ready. When on cooldown, shows **MARAS 24s** (counting down) in red until it's ready again. Draggable — click and drag to reposition. Font size is configurable.
 
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
@@ -70,6 +70,7 @@ Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOn
 | `/t4n debugplayer` | Logs all effect changes on the player for 60 seconds. Useful for identifying buff/debuff names and durations. |
 | `/t4n debugcombat` | Logs all combat events involving the player for 60 seconds. Useful for identifying ability IDs for set procs. |
 | `/t4n debugfx` | Logs the next 15 effect changes on any unit. |
+| `/t4n debugsets` | Prints all equipped set IDs, names, and piece counts. Useful for diagnosing set detection issues. |
 
 ## Notes
 
