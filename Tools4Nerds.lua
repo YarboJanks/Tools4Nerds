@@ -3,6 +3,7 @@ ZO_CreateStringId("SI_BINDING_NAME_TOOLS4NERDS_TOGGLE", "Toggle Tools 4 Nerds")
 local ADDON_NAME = "Tools4Nerds"
 local CC_IMMUNITY_ID = 28301
 local CC_IMMUNITY_DURATION = 7
+local MARAS_BALM_SET_ID     = 670
 local MARAS_BALM_ABILITY_ID = 184634
 local MARAS_BALM_COOLDOWN   = 28000  -- ms
 local POOL_SIZE = 10
@@ -23,6 +24,7 @@ local marasEndTime     = 0
 local marasTickId      = 0
 local marasTickPending = false
 local marasTesting     = false
+local marasEquipped    = false
 
 local sv
 local accountSv
@@ -142,7 +144,7 @@ local function UpdateDebuffCounter()
 end
 
 local function UpdateMarasIndicator()
-    if not sv.showMaras then
+    if not sv.showMaras or (not marasEquipped and not marasTesting) then
         T4NMarasContainer:SetHidden(true)
         return
     end
@@ -171,6 +173,24 @@ local function UpdateMarasIndicator()
         T4NMarasLabel:SetColor(0, 1, 0, 1)
     end
     T4NMarasContainer:SetHidden(false)
+end
+
+local function CheckMarasEquipped()
+    local count = 0
+    for slot = 0, 25 do
+        local itemLink = GetItemLink(BAG_WORN, slot)
+        if itemLink ~= "" then
+            local hasSet, _, _, _, _, setId = GetItemLinkSetInfo(itemLink)
+            if hasSet and setId == MARAS_BALM_SET_ID then
+                count = count + 1
+            end
+        end
+    end
+    local equipped = count >= 5
+    if equipped ~= marasEquipped then
+        marasEquipped = equipped
+        UpdateMarasIndicator()
+    end
 end
 
 local function ShowBlockIndicator()
@@ -273,7 +293,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r & |cFFDD00@|cFFD100b|cFFC500r|cFFB900o|cFFAD00k|cFFA200e|cFF9600a|cFF8A00s|cFF7E00s|cFF7300h|cFF6700a|cFF5B00c|cFF4F00h|cFF4400i|r",
-        version            = "2.5.0",
+        version            = "2.6.0",
     }
 
     local optionsData = {
@@ -693,7 +713,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     T4NMarasContainer:SetHandler("OnMoveStop", function()
         sv.marasPos = { x = T4NMarasContainer:GetLeft(), y = T4NMarasContainer:GetTop() }
     end)
-    UpdateMarasIndicator()
+    CheckMarasEquipped()
 
     -- flash for warning state (>= 6 debuffs)
     debuffFlashTimeline = ANIMATION_MANAGER:CreateTimeline()
@@ -746,7 +766,11 @@ local function OnAddOnLoaded(eventCode, addOnName)
             marasEndTime = 0
             marasTickId  = marasTickId + 1
             UpdateDebuffCounter()
-            UpdateMarasIndicator()
+            CheckMarasEquipped()
+        end)
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_MarasEquip", EVENT_INVENTORY_SINGLE_SLOT_UPDATE,
+        function(_, bagId)
+            if bagId == BAG_WORN then CheckMarasEquipped() end
         end)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Maras", EVENT_COMBAT_EVENT,
         function(_, _, _, _, _, _, _, _, targetName, _, _, _, _, _, _, _, abilityId)
@@ -797,6 +821,20 @@ local function OnAddOnLoaded(eventCode, addOnName)
                 EVENT_MANAGER:UnregisterForEvent("T4NDebugPlayer", EVENT_EFFECT_CHANGED)
                 d("[T4N] debugplayer stopped")
             end, 60000)
+        elseif args == "debugsets" then
+            d("[T4N] Equipped set info:")
+            local marasCount = 0
+            for slot = 0, 25 do
+                local itemLink = GetItemLink(BAG_WORN, slot)
+                if itemLink ~= "" then
+                    local hasSet, setName, _, numEquipped, maxEquipped, setId = GetItemLinkSetInfo(itemLink)
+                    if hasSet then
+                        d(string.format("[T4N] slot=%d setId=%d %d/%d name=%s", slot, setId, numEquipped, maxEquipped, tostring(setName)))
+                        if setId == MARAS_BALM_SET_ID then marasCount = marasCount + 1 end
+                    end
+                end
+            end
+            d(string.format("[T4N] Mara's Balm pieces found: %d (need 5)", marasCount))
         elseif args == "debugcombat" then
             d("[T4N] Logging combat events involving player for 60s...")
             EVENT_MANAGER:RegisterForEvent("T4NDebugCombat", EVENT_COMBAT_EVENT,
@@ -829,7 +867,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
                 d("[T4N] debugfx stopped (timeout)")
             end, 30000)
         else
-            d("[T4N] Commands: /t4n debug | /t4n debugfx | /t4n debugplayer | /t4n debugcombat")
+            d("[T4N] Commands: /t4n debug | /t4n debugfx | /t4n debugplayer | /t4n debugcombat | /t4n debugsets")
         end
     end
 end
