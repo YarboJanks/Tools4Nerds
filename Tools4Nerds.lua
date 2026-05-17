@@ -15,6 +15,7 @@ local tickScheduled = false
 local blockTimerId = 0
 local ccImmuneTimes = {}
 local debuffCount = 0
+local activeDebuffSlots = {}
 local debuffFlashTimeline
 
 local sv
@@ -611,14 +612,25 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED,                    OnEffectChanged)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Debuff", EVENT_EFFECT_CHANGED,
-        function(_, changeType, _, _, unitTag, _, _, _, _, _, effectType)
+        function(_, changeType, effectSlot, _, unitTag, _, _, _, _, _, effectType)
             if unitTag ~= "player" then return end
-            if effectType ~= 2 then return end  -- 2 = debuff, confirmed from event data
-            if changeType == 1 then             -- 1 = gained
-                debuffCount = debuffCount + 1
-            elseif changeType == 2 then         -- 2 = faded
-                debuffCount = math.max(0, debuffCount - 1)
+            if changeType == 1 then                              -- gained
+                if effectType == 2 and not activeDebuffSlots[effectSlot] then
+                    activeDebuffSlots[effectSlot] = true
+                    debuffCount = debuffCount + 1
+                end
+            elseif changeType == 2 then                          -- faded
+                if activeDebuffSlots[effectSlot] then
+                    activeDebuffSlots[effectSlot] = nil
+                    debuffCount = math.max(0, debuffCount - 1)
+                end
             end
+            UpdateDebuffCounter()
+        end)
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_DebuffReset", EVENT_PLAYER_ACTIVATED,
+        function()
+            activeDebuffSlots = {}
+            debuffCount = 0
             UpdateDebuffCounter()
         end)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
