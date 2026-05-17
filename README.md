@@ -18,6 +18,9 @@ Plays an animated overlay on your screen when you land a critical hit. Size and 
 ### Debuff Counter
 Displays a live count of negative effects currently active on you. When the count reaches 6 or more, the counter flashes rapidly as a warning. The counter is draggable — click and drag it anywhere on screen. Font size and color are configurable independently of the other indicators.
 
+### Mara's Balm Tracker
+Displays **MARAS** in green when Mara's Balm is off cooldown and red when it is on cooldown. Draggable — click and drag to reposition. Font size is configurable.
+
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
 
@@ -50,6 +53,9 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Debuff Counter Color | Color of the debuff counter text |
 | Counter Size | Font size of the debuff counter |
 | Reset Position | Snap the debuff counter back to its default position |
+| Enable Mara's Balm Tracker | Toggle the MARAS ready/cooldown indicator |
+| Mara's Balm Text Size | Font size of the MARAS indicator |
+| Mara's Balm Reset Position | Snap the MARAS indicator back to its default position |
 | Auto Accept Queue | Toggle automatic queue acceptance |
 
 Each section also has a **Test** button to preview how that indicator looks without needing to be in combat.

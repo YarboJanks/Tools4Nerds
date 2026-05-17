@@ -3,6 +3,8 @@ ZO_CreateStringId("SI_BINDING_NAME_TOOLS4NERDS_TOGGLE", "Toggle Tools 4 Nerds")
 local ADDON_NAME = "Tools4Nerds"
 local CC_IMMUNITY_ID = 28301
 local CC_IMMUNITY_DURATION = 7
+local MARAS_BALM_ABILITY_ID = 184634
+local MARAS_BALM_COOLDOWN   = 28000  -- ms
 local POOL_SIZE = 10
 local MARKER_DURATION = 700
 local SPREAD_RADIUS = 60
@@ -15,12 +17,15 @@ local tickScheduled = false
 local blockTimerId = 0
 local ccImmuneTimes = {}
 local debuffCount = 0
+local activeDebuffSlots = {}
 local debuffFlashTimeline
+local marasOnCooldown = false
+local marasTimerId    = 0
 
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showDebuffCount", "debuffCountColor", "debuffCountSize" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -42,6 +47,8 @@ local defaults = {
     showDebuffCount  = true,
     debuffCountColor = { r = 0.8, g = 0.4, b = 1.0 },
     debuffCountSize  = 36,
+    showMaras        = true,
+    marasSize        = 36,
 }
 
 local markerPool = {}
@@ -94,6 +101,8 @@ local function ApplySettings()
     T4NBlockLabel:SetFont(font)
     local debuffFont = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.debuffCountSize)
     T4NDebuffLabel:SetFont(debuffFont)
+    local marasFont = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.marasSize)
+    T4NMarasLabel:SetFont(marasFont)
 end
 
 local function CountDebuffs()
@@ -128,6 +137,24 @@ local function UpdateDebuffCounter()
     T4NDebuffLabel:SetColor(sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1)
     T4NDebuffContainer:SetHidden(false)
     SetDebuffWarning(CountDebuffs() >= 6)
+end
+
+local function UpdateMarasIndicator()
+    if not sv.showMaras then
+        T4NMarasContainer:SetHidden(true)
+        return
+    end
+    local hudActive = SCENE_MANAGER:IsShowing("hud") or SCENE_MANAGER:IsShowing("hudui")
+    if not hudActive then
+        T4NMarasContainer:SetHidden(true)
+        return
+    end
+    if marasOnCooldown then
+        T4NMarasLabel:SetColor(1, 0, 0, 1)
+    else
+        T4NMarasLabel:SetColor(0, 1, 0, 1)
+    end
+    T4NMarasContainer:SetHidden(false)
 end
 
 local function ShowBlockIndicator()
@@ -230,7 +257,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "2.3.0",
+        version            = "2.4.0",
     }
 
     local optionsData = {
@@ -416,6 +443,43 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Mara's Balm",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Mara's Balm Tracker",
+            tooltip = "Show MARAS in green when ready, red when on cooldown.",
+            getFunc = function() return sv.showMaras end,
+            setFunc = function(value)
+                sv.showMaras = value
+                UpdateMarasIndicator()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Text Size",
+            tooltip = "Font size for the Mara's Balm tracker text.",
+            min     = 12,
+            max     = 72,
+            step    = 1,
+            getFunc = function() return sv.marasSize end,
+            setFunc = function(value)
+                sv.marasSize = value
+                T4NMarasLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", value))
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Reset Position",
+            tooltip = "Move the Mara's Balm tracker back to its default screen position.",
+            func    = function()
+                sv.marasPos = nil
+                T4NMarasContainer:ClearAnchors()
+                T4NMarasContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 50)
+            end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -445,8 +509,14 @@ local function RegisterSettings()
                 sv.debuffCountPos   = nil
                 T4NDebuffContainer:ClearAnchors()
                 T4NDebuffContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 0)
+                sv.showMaras = defaults.showMaras
+                sv.marasSize = defaults.marasSize
+                sv.marasPos  = nil
+                T4NMarasContainer:ClearAnchors()
+                T4NMarasContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 50)
                 ApplySettings()
                 UpdateDebuffCounter()
+                UpdateMarasIndicator()
                 if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
         },
@@ -566,6 +636,8 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.showDebuffCount  == nil then sv.showDebuffCount  = defaults.showDebuffCount end
     if sv.debuffCountColor == nil then sv.debuffCountColor = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b } end
     if sv.debuffCountSize  == nil then sv.debuffCountSize  = defaults.debuffCountSize end
+    if sv.showMaras        == nil then sv.showMaras        = defaults.showMaras end
+    if sv.marasSize        == nil then sv.marasSize        = defaults.marasSize end
 
     ApplySettings()
     CreateMarkerPool()
@@ -582,6 +654,18 @@ local function OnAddOnLoaded(eventCode, addOnName)
         sv.debuffCountPos = { x = T4NDebuffContainer:GetLeft(), y = T4NDebuffContainer:GetTop() }
     end)
     UpdateDebuffCounter()
+
+    -- set up Mara's Balm tracker (draggable, restore saved position)
+    T4NMarasContainer:SetResizeToFitDescendents(true)
+    T4NMarasLabel:SetText("MARAS")
+    if sv.marasPos then
+        T4NMarasContainer:ClearAnchors()
+        T4NMarasContainer:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sv.marasPos.x, sv.marasPos.y)
+    end
+    T4NMarasContainer:SetHandler("OnMoveStop", function()
+        sv.marasPos = { x = T4NMarasContainer:GetLeft(), y = T4NMarasContainer:GetTop() }
+    end)
+    UpdateMarasIndicator()
 
     -- flash for warning state (>= 6 debuffs)
     debuffFlashTimeline = ANIMATION_MANAGER:CreateTimeline()
@@ -600,6 +684,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
 
     local function OnHUDSceneChange(oldState, newState)
         UpdateDebuffCounter()
+        UpdateMarasIndicator()
     end
     local hudScene   = SCENE_MANAGER:GetScene("hud")
     local hudUIScene = SCENE_MANAGER:GetScene("hudui")
@@ -611,15 +696,44 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED,                    OnEffectChanged)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Debuff", EVENT_EFFECT_CHANGED,
-        function(_, changeType, _, _, unitTag, _, _, _, _, _, effectType)
+        function(_, changeType, effectSlot, _, unitTag, _, _, _, _, _, effectType)
             if unitTag ~= "player" then return end
-            if effectType ~= 2 then return end  -- 2 = debuff, confirmed from event data
-            if changeType == 1 then             -- 1 = gained
-                debuffCount = debuffCount + 1
-            elseif changeType == 2 then         -- 2 = faded
-                debuffCount = math.max(0, debuffCount - 1)
+            if changeType == 1 then                              -- gained
+                if effectType == 2 and not activeDebuffSlots[effectSlot] then
+                    activeDebuffSlots[effectSlot] = true
+                    debuffCount = debuffCount + 1
+                end
+            elseif changeType == 2 then                          -- faded
+                if activeDebuffSlots[effectSlot] then
+                    activeDebuffSlots[effectSlot] = nil
+                    debuffCount = math.max(0, debuffCount - 1)
+                end
             end
             UpdateDebuffCounter()
+        end)
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_DebuffReset", EVENT_PLAYER_ACTIVATED,
+        function()
+            activeDebuffSlots = {}
+            debuffCount = 0
+            marasOnCooldown = false
+            UpdateDebuffCounter()
+            UpdateMarasIndicator()
+        end)
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Maras", EVENT_COMBAT_EVENT,
+        function(_, _, _, _, _, _, _, _, targetName, _, _, _, _, _, _, _, abilityId)
+            if abilityId ~= MARAS_BALM_ABILITY_ID then return end
+            local cleanTarget = targetName:gsub("%^.*", "")
+            if cleanTarget ~= GetUnitName("player"):gsub("%^.*", "") then return end
+            marasOnCooldown = true
+            marasTimerId = marasTimerId + 1
+            local myId = marasTimerId
+            UpdateMarasIndicator()
+            zo_callLater(function()
+                if marasTimerId == myId then
+                    marasOnCooldown = false
+                    UpdateMarasIndicator()
+                end
+            end, MARAS_BALM_COOLDOWN)
         end)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
@@ -648,6 +762,32 @@ local function OnAddOnLoaded(eventCode, addOnName)
                 ccRemaining and string.format("%.2f", ccRemaining) or "nil",
                 inferredRemaining and string.format("%.2f", inferredRemaining) or "nil",
                 tostring(tickScheduled)))
+        elseif args == "debugplayer" then
+            d("[T4N] Logging all player effect changes for 60s...")
+            EVENT_MANAGER:RegisterForEvent("T4NDebugPlayer", EVENT_EFFECT_CHANGED,
+                function(_, changeType, effectSlot, effectName, unitTag, _, endTime, _, _, _, effectType)
+                    if unitTag ~= "player" then return end
+                    local remaining = endTime and (endTime - GetFrameTimeSeconds()) or 0
+                    d(string.format("[T4NPlayer] change=%d effect=%d slot=%d time=%.1fs name=%s",
+                        changeType, effectType, effectSlot, remaining, tostring(effectName)))
+                end)
+            zo_callLater(function()
+                EVENT_MANAGER:UnregisterForEvent("T4NDebugPlayer", EVENT_EFFECT_CHANGED)
+                d("[T4N] debugplayer stopped")
+            end, 60000)
+        elseif args == "debugcombat" then
+            d("[T4N] Logging combat events involving player for 60s...")
+            EVENT_MANAGER:RegisterForEvent("T4NDebugCombat", EVENT_COMBAT_EVENT,
+                function(_, result, _, abilityName, _, _, sourceName, _, targetName, _, _, _, _, _, _, _, abilityId)
+                    local playerName = GetUnitName("player")
+                    if sourceName ~= playerName and targetName ~= playerName then return end
+                    d(string.format("[T4NCombat] result=%d id=%d src=%s tgt=%s name=%s",
+                        result, abilityId, tostring(sourceName), tostring(targetName), tostring(abilityName)))
+                end)
+            zo_callLater(function()
+                EVENT_MANAGER:UnregisterForEvent("T4NDebugCombat", EVENT_COMBAT_EVENT)
+                d("[T4N] debugcombat stopped")
+            end, 60000)
         elseif args == "debugfx" then
             local count = 0
             local limit = 15
@@ -667,7 +807,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
                 d("[T4N] debugfx stopped (timeout)")
             end, 30000)
         else
-            d("[T4N] Commands: /t4n debug | /t4n debugfx")
+            d("[T4N] Commands: /t4n debug | /t4n debugfx | /t4n debugplayer | /t4n debugcombat")
         end
     end
 end

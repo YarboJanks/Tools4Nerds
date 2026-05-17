@@ -28,5 +28,13 @@
         </Label>
       </Controls>
     </TopLevelControl>
+    <TopLevelControl name="T4NMarasContainer" hidden="true" mouseEnabled="true" movable="true" clampedToScreen="true">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="200" offsetY="50" />
+      <Controls>
+        <Label name="T4NMarasLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="TOPLEFT" relativeTo="T4NMarasContainer" relativePoint="TOPLEFT" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
   </Controls>
 </GuiXml>
