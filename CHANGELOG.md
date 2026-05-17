@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.5.0] - 2026-05-17
+### Added
+- Mara's Balm tracker now shows a live countdown (e.g. "MARAS 24s") while on cooldown, returning to "MARAS" in green when ready
+- Mara's Balm test button counts down visibly and remains visible while the settings panel is open
+
 ## [2.4.0] - 2026-05-17
 ### Added
 - Mara's Balm tracker — displays MARAS in green when ready, red when on cooldown (28s); draggable and resizable with its own settings section

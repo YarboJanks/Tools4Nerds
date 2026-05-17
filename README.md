@@ -2,7 +2,7 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, and queue pop-ups.
+A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, debuff count, Mara's Balm cooldown, and queue pop-ups.
 
 ## Features
 
@@ -19,7 +19,7 @@ Plays an animated overlay on your screen when you land a critical hit. Size and 
 Displays a live count of negative effects currently active on you. When the count reaches 6 or more, the counter flashes rapidly as a warning. The counter is draggable — click and drag it anywhere on screen. Font size and color are configurable independently of the other indicators.
 
 ### Mara's Balm Tracker
-Displays **MARAS** in green when Mara's Balm is off cooldown and red when it is on cooldown. Draggable — click and drag to reposition. Font size is configurable.
+Displays **MARAS** in green when Mara's Balm is off cooldown. When on cooldown, shows **MARAS 24s** (counting down) in red until it's ready again. Draggable — click and drag to reposition. Font size is configurable.
 
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
@@ -58,7 +58,7 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Mara's Balm Reset Position | Snap the MARAS indicator back to its default position |
 | Auto Accept Queue | Toggle automatic queue acceptance |
 
-Each section also has a **Test** button to preview how that indicator looks without needing to be in combat.
+Each feature section has a **Test** button to preview how that indicator looks without needing to be in combat. The Mara's Balm test runs a 5-second countdown so you can see the full red → green transition, and remains visible even with the settings panel open.
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
@@ -67,6 +67,9 @@ Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOn
 | Command | Description |
 |---------|-------------|
 | `/t4n debug` | Prints current state to chat — combat flag, target type, buff count, CC tracking status, and tick state. Useful for diagnosing why an indicator isn't showing. |
+| `/t4n debugplayer` | Logs all effect changes on the player for 60 seconds. Useful for identifying buff/debuff names and durations. |
+| `/t4n debugcombat` | Logs all combat events involving the player for 60 seconds. Useful for identifying ability IDs for set procs. |
+| `/t4n debugfx` | Logs the next 15 effect changes on any unit. |
 
 ## Notes
 
