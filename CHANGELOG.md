@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.0] - 2026-05-17
+### Added
+- Mara's Balm tracker — displays MARAS in green when ready, red when on cooldown (28s); draggable and resizable with its own settings section
+- `/t4n debugplayer` slash command — logs all effect changes on the player
+- `/t4n debugcombat` slash command — logs all combat events involving the player
+### Fixed
+- Debuff counter could drift out of sync when effects expired without firing a fade event; now uses per-slot tracking and resets cleanly on zone load
+
 ## [2.3.0] - 2026-05-17
 ### Added
 - Debuff counter — live count of negative effects currently on the player; draggable, resizable, and color-configurable with a settings section and test button
