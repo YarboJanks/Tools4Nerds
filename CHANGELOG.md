@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0] - 2026-05-17
+### Added
+- Mara's Balm tracker auto-shows when 5 or more pieces of the set are equipped (including backbar weapons) and hides when the set is removed
+- `/t4n debugsets` slash command — prints all equipped set IDs, names, and piece counts
+### Fixed
+- Mara's Balm set detection now correctly counts pieces across all equipment slots including backbar (slots 0–25)
+
 ## [2.5.0] - 2026-05-17
 ### Added
 - Mara's Balm tracker now shows a live countdown (e.g. "MARAS 24s") while on cooldown, returning to "MARAS" in green when ready
