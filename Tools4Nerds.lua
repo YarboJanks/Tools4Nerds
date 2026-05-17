@@ -19,8 +19,10 @@ local ccImmuneTimes = {}
 local debuffCount = 0
 local activeDebuffSlots = {}
 local debuffFlashTimeline
-local marasOnCooldown = false
-local marasTimerId    = 0
+local marasEndTime     = 0
+local marasTickId      = 0
+local marasTickPending = false
+local marasTesting     = false
 
 local sv
 local accountSv
@@ -145,13 +147,27 @@ local function UpdateMarasIndicator()
         return
     end
     local hudActive = SCENE_MANAGER:IsShowing("hud") or SCENE_MANAGER:IsShowing("hudui")
-    if not hudActive then
+    if not hudActive and not marasTesting then
         T4NMarasContainer:SetHidden(true)
         return
     end
-    if marasOnCooldown then
+    local remaining = marasEndTime - GetFrameTimeSeconds()
+    if remaining > 0 then
+        T4NMarasLabel:SetText(string.format("MARAS %ds", math.ceil(remaining)))
         T4NMarasLabel:SetColor(1, 0, 0, 1)
+        if not marasTickPending then
+            marasTickPending = true
+            local id = marasTickId
+            zo_callLater(function()
+                marasTickPending = false
+                if id == marasTickId then
+                    UpdateMarasIndicator()
+                end
+            end, 100)
+        end
     else
+        marasTesting = false
+        T4NMarasLabel:SetText("MARAS")
         T4NMarasLabel:SetColor(0, 1, 0, 1)
     end
     T4NMarasContainer:SetHidden(false)
@@ -256,8 +272,8 @@ local function RegisterSettings()
         type               = "panel",
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
-        author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "2.4.0",
+        author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r & |cFFDD00@|cFFD100b|cFFC500r|cFFB900o|cFFAD00k|cFFA200e|cFF9600a|cFF8A00s|cFF7E00s|cFF7300h|cFF6700a|cFF5B00c|cFF4F00h|cFF4400i|r",
+        version            = "2.5.0",
     }
 
     local optionsData = {
@@ -476,6 +492,18 @@ local function RegisterSettings()
                 sv.marasPos = nil
                 T4NMarasContainer:ClearAnchors()
                 T4NMarasContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 50)
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Test Mara's Balm Tracker",
+            tooltip = "Show the tracker on cooldown (red) for 3 seconds, then ready (green).",
+            func    = function()
+                marasTesting = true
+                marasEndTime = GetFrameTimeSeconds() + 5
+                marasTickId  = marasTickId + 1
+                T4NMarasContainer:SetHidden(false)
+                UpdateMarasIndicator()
             end,
         },
         {
@@ -715,7 +743,8 @@ local function OnAddOnLoaded(eventCode, addOnName)
         function()
             activeDebuffSlots = {}
             debuffCount = 0
-            marasOnCooldown = false
+            marasEndTime = 0
+            marasTickId  = marasTickId + 1
             UpdateDebuffCounter()
             UpdateMarasIndicator()
         end)
@@ -724,16 +753,9 @@ local function OnAddOnLoaded(eventCode, addOnName)
             if abilityId ~= MARAS_BALM_ABILITY_ID then return end
             local cleanTarget = targetName:gsub("%^.*", "")
             if cleanTarget ~= GetUnitName("player"):gsub("%^.*", "") then return end
-            marasOnCooldown = true
-            marasTimerId = marasTimerId + 1
-            local myId = marasTimerId
+            marasEndTime = GetFrameTimeSeconds() + (MARAS_BALM_COOLDOWN / 1000)
+            marasTickId  = marasTickId + 1
             UpdateMarasIndicator()
-            zo_callLater(function()
-                if marasTimerId == myId then
-                    marasOnCooldown = false
-                    UpdateMarasIndicator()
-                end
-            end, MARAS_BALM_COOLDOWN)
         end)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
