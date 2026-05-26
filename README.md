@@ -25,7 +25,7 @@ Automatically appears when 5 or more pieces of the Mara's Balm set are equipped 
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
 
 ### Global Cooldown (GCD) Overlay
-Adds a cooldown animation directly over each action bar slot during the global cooldown, giving you a clear visual indicator of when your next ability is available. Replaces the standalone "Show Global Cooldown" addon if you were using it.
+Adds a cooldown animation directly over each action bar slot during the global cooldown, giving you a clear visual indicator of when your next ability is available.
 
 - **Animation style** — Ascending (bottom to top), Descending (top to bottom), or Radial
 - **Icon desaturation** — greys out ability icons during the GCD
@@ -75,15 +75,6 @@ Each feature section has a **Test** button to preview how that indicator looks w
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
-
-### Slash Commands
-| Command | Description |
-|---------|-------------|
-| `/t4n debug` | Prints current state to chat — combat flag, target type, buff count, CC tracking status, and tick state. Useful for diagnosing why an indicator isn't showing. |
-| `/t4n debugplayer` | Logs all effect changes on the player for 60 seconds. Useful for identifying buff/debuff names and durations. |
-| `/t4n debugcombat` | Logs all combat events involving the player for 60 seconds. Useful for identifying ability IDs for set procs. |
-| `/t4n debugfx` | Logs the next 15 effect changes on any unit. |
-| `/t4n debugsets` | Prints all equipped set IDs, names, and piece counts. Useful for diagnosing set detection issues. |
 
 ## Notes
 
