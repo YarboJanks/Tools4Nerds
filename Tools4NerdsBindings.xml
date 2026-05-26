@@ -1,0 +1,7 @@
+<Bindings>
+  <Layer name="Tools4Nerds">
+    <Action name="TOOLS4NERDS_TOGGLE">
+      <Up>Tools4Nerds_Toggle()</Up>
+    </Action>
+  </Layer>
+</Bindings>

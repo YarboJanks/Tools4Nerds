@@ -1,0 +1,12 @@
+## Title: |cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r
+## Description: CC immunity tracker, block indicator, crit hit marker, auto queue accept, and GCD overlay
+## Author: |cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r
+## Version: 3.0.0
+## APIVersion: 101049
+## SavedVariables: Tools4NerdsSV
+## AccountSavedVariables: Tools4NerdsAccountSV
+## DependsOn: LibAddonMenu-2.0
+
+Tools4Nerds.xml
+Tools4Nerds.lua
+## Bindings: Tools4NerdsBindings.xml

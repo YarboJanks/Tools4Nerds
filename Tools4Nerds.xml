@@ -1,0 +1,24 @@
+<GuiXml>
+  <Controls>
+    <TopLevelControl name="T4NCCContainer" hidden="true" mouseEnabled="false">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="0" offsetY="-140" />
+      <Controls>
+        <Label name="T4NLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="CENTER" relativeTo="T4NCCContainer" relativePoint="CENTER" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
+    <TopLevelControl name="T4NBlockContainer" hidden="true" mouseEnabled="false">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="0" offsetY="-95" />
+      <Controls>
+        <Label name="T4NBlockLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="CENTER" relativeTo="T4NBlockContainer" relativePoint="CENTER" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
+    <TopLevelControl name="T4NCritContainer" hidden="false" mouseEnabled="false">
+      <Anchor point="TOPLEFT" relativeTo="GuiRoot" relativePoint="TOPLEFT" />
+      <Anchor point="BOTTOMRIGHT" relativeTo="GuiRoot" relativePoint="BOTTOMRIGHT" />
+    </TopLevelControl>
+  </Controls>
+</GuiXml>
