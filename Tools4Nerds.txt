@@ -1,7 +1,7 @@
 ## Title: |cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r
 ## Description: Various Tools 4 Nerds
 ## Author: |cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r & |cFFDD00@|cFFD100b|cFFC500r|cFFB900o|cFFAD00k|cFFA200e|cFF9600a|cFF8A00s|cFF7E00s|cFF7300h|cFF6700a|cFF5B00c|cFF4F00h|cFF4400i|r
-## Version: 2.6.0
+## Version: 2.7.0
 ## APIVersion: 101049
 ## SavedVariables: Tools4NerdsSV
 ## AccountSavedVariables: Tools4NerdsAccountSV

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.0] - 2026-05-27
+### Added
+- GCD overlay — hooks ESO's native cooldown animation onto each action bar slot during the global cooldown
+- GCD animation style setting — Ascending (bottom to top), Descending (top to bottom), or Radial
+- Icon desaturation during GCD (configurable)
+- Ready animation on GCD expiry (configurable, off by default)
+- Option to extend the GCD overlay to consumable/potion slots (off by default)
+- GCD settings are included in account-wide sync
+
 ## [2.6.0] - 2026-05-17
 ### Added
 - Mara's Balm tracker auto-shows when 5 or more pieces of the set are equipped (including backbar weapons) and hides when the set is removed
