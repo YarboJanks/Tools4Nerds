@@ -29,7 +29,7 @@ local marasEquipped    = false
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -53,6 +53,11 @@ local defaults = {
     debuffCountSize  = 36,
     showMaras        = true,
     marasSize        = 36,
+    showGCD       = true,
+    gcdType       = CD_TYPE_VERTICAL_REVEAL,
+    gcdDesaturate = true,
+    gcdAnimation  = false,
+    gcdPotion     = false,
 }
 
 local markerPool = {}
@@ -278,6 +283,111 @@ function Tools4Nerds_Toggle()
     UpdateIndicator()
 end
 
+-- ── GCD Overlay ──────────────────────────────────────────────────────────────
+-- Technique adapted from ShowGlobalCooldown by Valve:
+-- hook ActionButton.UpdateCooldown so GCD triggers ESO's native vertical-reveal
+-- cooldown animation on each ability button, plus icon desaturation.
+local NO_LEADING_EDGE = false
+
+local function HookGCDCooldown()
+    local origUpdateCooldown = ActionButton.UpdateCooldown
+    ActionButton.UpdateCooldown = function(self, options)
+        if not sv or not sv.showGCD then
+            return origUpdateCooldown(self, options)
+        end
+        local slotnum    = self:GetSlot()
+        local consumable = IsSlotItemConsumable(slotnum)
+        local remain, duration, global = GetSlotCooldownInfo(slotnum)
+        local isInCooldown  = duration > 0
+        local showCooldown  = isInCooldown
+        self.cooldown:SetHidden(not showCooldown)
+        if showCooldown then
+            if not consumable or duration > 1000 or sv.gcdPotion then
+                self.cooldown:StartCooldown(remain, duration, sv.gcdType, nil, NO_LEADING_EDGE)
+                if self.cooldownCompleteAnim.animation then
+                    self.cooldownCompleteAnim.animation:GetTimeline():PlayInstantlyToStart()
+                end
+                if not IsInGamepadPreferredMode() then
+                    self.cooldown:SetHidden(false)
+                end
+                self.slot:SetHandler("OnUpdate", function() self:RefreshCooldown() end)
+            else
+                self.cooldown:SetHidden(true)
+            end
+        else
+            if sv.gcdAnimation and self.showingCooldown then
+                self.cooldownCompleteAnim.animation = self.cooldownCompleteAnim.animation
+                    or CreateSimpleAnimation(ANIMATION_TEXTURE, self.cooldownCompleteAnim)
+                local anim = self.cooldownCompleteAnim.animation
+                self.cooldownCompleteAnim:SetHidden(false)
+                self.cooldown:SetHidden(false)
+                anim:SetImageData(16, 1)
+                anim:SetFramerate(30)
+                anim:GetTimeline():PlayFromStart()
+            end
+            self.icon.percentComplete = 1
+            self.slot:SetHandler("OnUpdate", nil)
+            self.cooldown:ResetCooldown()
+        end
+        if showCooldown ~= self.showingCooldown then
+            self.showingCooldown = showCooldown
+            if self.showingCooldown then
+                ZO_ContextualActionBar_AddReference()
+            else
+                ZO_ContextualActionBar_RemoveReference()
+            end
+            self:UpdateActivationHighlight()
+            if IsInGamepadPreferredMode() then
+                self:SetCooldownHeight(self.icon.percentComplete)
+            end
+            self:SetShowCooldown(showCooldown)
+        end
+        local textColor = showCooldown and INTERFACE_TEXT_COLOR_FAILED or INTERFACE_TEXT_COLOR_SELECTED
+        self.buttonText:SetColor(GetInterfaceColor(INTERFACE_COLOR_TYPE_TEXT_COLORS, textColor))
+        self.isGlobalCooldown = global
+        self:UpdateUsable()
+    end
+
+    local origUpdateUsable = ActionButton.UpdateUsable
+    ActionButton.UpdateUsable = function(self)
+        if not sv or not sv.showGCD then
+            return origUpdateUsable(self)
+        end
+        local isGamepad   = IsInGamepadPreferredMode()
+        local slotnum     = self:GetSlot()
+        local consumable  = IsSlotItemConsumable(slotnum)
+        local _, duration = GetSlotCooldownInfo(slotnum)
+        local isShowingCooldown      = self.showingCooldown
+        local isKeyboardUltimateSlot = not isGamepad and self.slot.slotNum == ACTION_BAR_ULTIMATE_SLOT_INDEX + 1
+        local usable = false
+        if not self.useFailure and not isShowingCooldown then
+            usable = true
+        elseif isKeyboardUltimateSlot and self.costFailureOnly and not isShowingCooldown then
+            usable = true
+        elseif consumable and duration <= 1000 and not self.useFailure then
+            usable = true
+        end
+        if usable ~= self.usable or isGamepad ~= self.isGamepad then
+            self.usable   = usable
+            self.isGamepad = isGamepad
+        end
+        ZO_ActionSlot_SetUnusable(self.icon, not usable, isShowingCooldown and sv.gcdDesaturate)
+    end
+end
+-- ── end GCD Overlay ───────────────────────────────────────────────────────────
+
+local GCD_TYPE_CHOICES = { "Ascending (Bottom to Top)", "Descending (Top to Bottom)", "Radial" }
+local GCD_TYPE_VALUES  = {
+    ["Ascending (Bottom to Top)"]  = CD_TYPE_VERTICAL_REVEAL,
+    ["Descending (Top to Bottom)"] = CD_TYPE_VERTICAL,
+    ["Radial"]                     = CD_TYPE_RADIAL,
+}
+local GCD_TYPE_NAMES = {
+    [CD_TYPE_VERTICAL_REVEAL] = "Ascending (Bottom to Top)",
+    [CD_TYPE_VERTICAL]        = "Descending (Top to Bottom)",
+    [CD_TYPE_RADIAL]          = "Radial",
+}
+
 local function RegisterSettings()
     local LAM = LibAddonMenu2
     if not LAM then return end
@@ -293,7 +403,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r & |cFFDD00@|cFFD100b|cFFC500r|cFFB900o|cFFAD00k|cFFA200e|cFF9600a|cFF8A00s|cFF7E00s|cFF7300h|cFF6700a|cFF5B00c|cFF4F00h|cFF4400i|r",
-        version            = "2.6.0",
+        version            = "2.7.0",
     }
 
     local optionsData = {
@@ -528,6 +638,46 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Global Cooldown",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable GCD Overlay",
+            tooltip = "Show ESO's native cooldown animation on action bar buttons during the Global Cooldown.",
+            getFunc = function() return sv.showGCD end,
+            setFunc = function(value) sv.showGCD = value end,
+        },
+        {
+            type    = "dropdown",
+            name    = "GCD Style",
+            tooltip = "Which cooldown animation style to display on action buttons during the GCD.",
+            choices = GCD_TYPE_CHOICES,
+            getFunc = function() return GCD_TYPE_NAMES[sv.gcdType] or GCD_TYPE_CHOICES[1] end,
+            setFunc = function(value) sv.gcdType = GCD_TYPE_VALUES[value] end,
+        },
+        {
+            type    = "checkbox",
+            name    = "Desaturate Icons",
+            tooltip = "Grey out ability icons while the Global Cooldown is active.",
+            getFunc = function() return sv.gcdDesaturate end,
+            setFunc = function(value) sv.gcdDesaturate = value end,
+        },
+        {
+            type    = "checkbox",
+            name    = "Ready Animation",
+            tooltip = "Play a flash animation on abilities when the Global Cooldown expires.",
+            getFunc = function() return sv.gcdAnimation end,
+            setFunc = function(value) sv.gcdAnimation = value end,
+        },
+        {
+            type    = "checkbox",
+            name    = "Show Potion Cooldown",
+            tooltip = "Also show the GCD animation on the quickslot/potion button.",
+            getFunc = function() return sv.gcdPotion end,
+            setFunc = function(value) sv.gcdPotion = value end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -551,6 +701,11 @@ local function RegisterSettings()
                 sv.critSize         = defaults.critSize
                 sv.critColor        = { r = defaults.critColor.r,        g = defaults.critColor.g,        b = defaults.critColor.b }
                 sv.autoAccept       = defaults.autoAccept
+                sv.showGCD       = defaults.showGCD
+                sv.gcdType       = defaults.gcdType
+                sv.gcdDesaturate = defaults.gcdDesaturate
+                sv.gcdAnimation  = defaults.gcdAnimation
+                sv.gcdPotion     = defaults.gcdPotion
                 sv.showDebuffCount  = defaults.showDebuffCount
                 sv.debuffCountColor = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b }
                 sv.debuffCountSize  = defaults.debuffCountSize
@@ -686,11 +841,17 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.debuffCountSize  == nil then sv.debuffCountSize  = defaults.debuffCountSize end
     if sv.showMaras        == nil then sv.showMaras        = defaults.showMaras end
     if sv.marasSize        == nil then sv.marasSize        = defaults.marasSize end
+    if sv.showGCD       == nil then sv.showGCD       = defaults.showGCD       end
+    if sv.gcdType       == nil then sv.gcdType       = defaults.gcdType       end
+    if sv.gcdDesaturate == nil then sv.gcdDesaturate = defaults.gcdDesaturate end
+    if sv.gcdAnimation  == nil then sv.gcdAnimation  = defaults.gcdAnimation  end
+    if sv.gcdPotion     == nil then sv.gcdPotion     = defaults.gcdPotion     end
 
     ApplySettings()
     CreateMarkerPool()
     RegisterSettings()
     HookNameplates()
+    HookGCDCooldown()
 
     -- set up debuff counter container (draggable, restore saved position)
     T4NDebuffContainer:SetResizeToFitDescendents(true)
