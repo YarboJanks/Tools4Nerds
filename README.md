@@ -2,7 +2,7 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, debuff count, Mara's Balm cooldown, queue pop-ups, and global cooldown tracking.
+A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, debuff count, Mara's Balm cooldown, and queue pop-ups.
 
 ## Features
 
@@ -23,14 +23,6 @@ Automatically appears when 5 or more pieces of the Mara's Balm set are equipped 
 
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
-
-### Global Cooldown (GCD) Overlay
-Adds a cooldown animation directly over each action bar slot during the global cooldown, giving you a clear visual indicator of when your next ability is available. Replaces the standalone "Show Global Cooldown" addon if you were using it.
-
-- **Animation style** — Ascending (bottom to top), Descending (top to bottom), or Radial
-- **Icon desaturation** — greys out ability icons during the GCD
-- **Ready animation** — flashes the slot when the GCD expires
-- **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
 
 ## Installation
 
@@ -65,11 +57,6 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Mara's Balm Text Size | Font size of the MARAS indicator |
 | Mara's Balm Reset Position | Snap the MARAS indicator back to its default position |
 | Auto Accept Queue | Toggle automatic queue acceptance |
-| Enable GCD Overlay | Toggle the global cooldown animation on action bar slots |
-| GCD Animation Style | Ascending, Descending, or Radial cooldown animation |
-| Desaturate Icons | Grey out ability icons during the GCD |
-| Ready Animation | Flash the slot when the GCD expires |
-| Show Potion Cooldown | Extend the GCD overlay to consumable slots |
 
 Each feature section has a **Test** button to preview how that indicator looks without needing to be in combat. The Mara's Balm test runs a 5-second countdown so you can see the full red → green transition, and remains visible even with the settings panel open.
 

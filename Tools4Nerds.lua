@@ -18,7 +18,7 @@ local ccImmuneTimes = {}
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showNecroBlock", "necroBlockSkeletal", "necroBlockBlastbones", "necroBlockGraveGrasp", "necroBlockGolem", "necroBlockColossus" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -42,6 +42,12 @@ local defaults = {
     gcdDesaturate = true,
     gcdAnimation  = false,
     gcdPotion     = false,
+    showNecroBlock       = true,
+    necroBlockSkeletal   = true,
+    necroBlockBlastbones = true,
+    necroBlockGraveGrasp = true,
+    necroBlockGolem      = true,
+    necroBlockColossus   = true,
 }
 
 local markerPool = {}
@@ -163,6 +169,63 @@ local function HookGCDCooldown()
 end
 -- ── end GCD Overlay ───────────────────────────────────────────────────────────
 
+-- ── Necromancer Guard Protection ─────────────────────────────────────────────
+-- Hooks ActionButton.Use to prevent criminal Necromancer abilities from firing
+-- when justice witnesses are present, blocking the guard-aggro trigger entirely.
+local NECROMANCER_CLASS_ID = 6
+
+-- Abilities ESO flags as criminal acts near witnesses (raises/summons undead).
+-- Values are the sv key that controls that group's toggle.
+-- To verify a slot name in-game: /script d(GetSlotName(3))  (replace 3 with slot #)
+local CRIMINAL_NECRO_ABILITIES = {
+    ["Skeletal Mage"]       = "necroBlockSkeletal",   ["Skeletal Archer"]     = "necroBlockSkeletal",   ["Skeletal Arcanist"]   = "necroBlockSkeletal",
+    ["Blastbones"]          = "necroBlockBlastbones", ["Stalking Blastbones"] = "necroBlockBlastbones", ["Viscous Blastbones"]  = "necroBlockBlastbones",
+    ["Grave Grasp"]         = "necroBlockGraveGrasp", ["Ghostly Embrace"]     = "necroBlockGraveGrasp", ["Empowering Grasp"]    = "necroBlockGraveGrasp",
+    ["Bone Golem"]          = "necroBlockGolem",      ["Pummeling Golem"]     = "necroBlockGolem",      ["Ravenous Golem"]      = "necroBlockGolem",
+    ["Frozen Colossus"]     = "necroBlockColossus",   ["Glacial Colossus"]    = "necroBlockColossus",   ["Pestilent Colossus"]  = "necroBlockColossus",
+}
+
+local necroBlockTimerId = 0
+
+local function ShowNecroBlockWarning(abilityName)
+    T4NNecroBlockLabel:SetText(abilityName .. "  BLOCKED")
+    T4NNecroBlockLabel:SetColor(1, 0.3, 0.1, 1)
+    T4NNecroBlockContainer:SetHidden(false)
+    necroBlockTimerId = necroBlockTimerId + 1
+    local myId = necroBlockTimerId
+    zo_callLater(function()
+        if necroBlockTimerId == myId then
+            T4NNecroBlockContainer:SetHidden(true)
+        end
+    end, 2000)
+end
+
+local function HookNecroBlock()
+    local origUse = ActionButton.Use
+    if not origUse then return end
+    ActionButton.Use = function(self, ...)
+        if not sv or not sv.showNecroBlock then
+            return origUse(self, ...)
+        end
+        if GetUnitClassId("player") ~= NECROMANCER_CLASS_ID then
+            return origUse(self, ...)
+        end
+        local witnesses = GetNumJusticeWitnesses and GetNumJusticeWitnesses() or 0
+        if witnesses == 0 then
+            return origUse(self, ...)
+        end
+        local slotnum  = self:GetSlot()
+        local slotName = GetSlotName(slotnum)
+        local groupKey = slotName and CRIMINAL_NECRO_ABILITIES[slotName]
+        if groupKey and sv[groupKey] then
+            ShowNecroBlockWarning(slotName)
+            return
+        end
+        return origUse(self, ...)
+    end
+end
+-- ── end Necromancer Guard Protection ─────────────────────────────────────────
+
 local function ShowMarker()
     local ctrl = table.remove(markerPool)
     if not ctrl then return end
@@ -185,6 +248,7 @@ local function ApplySettings()
     local font = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.fontSize)
     T4NLabel:SetFont(font)
     T4NBlockLabel:SetFont(font)
+    T4NNecroBlockLabel:SetFont(font)
 end
 
 local function GetCCImmunityRemaining()
@@ -277,7 +341,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "3.0.0",
+        version            = "3.1.0",
     }
 
     local optionsData = {
@@ -433,6 +497,57 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Necromancer Guard Protection",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Guard Protection",
+            tooltip = "Prevent criminal Necromancer abilities from firing when justice witnesses are present. Only activates for Necromancer class characters.",
+            getFunc = function() return sv.showNecroBlock end,
+            setFunc = function(value) sv.showNecroBlock = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Skeletal Mage",
+            tooltip  = "Block Skeletal Mage, Skeletal Archer, and Skeletal Arcanist near witnesses.",
+            disabled = function() return not sv.showNecroBlock end,
+            getFunc  = function() return sv.necroBlockSkeletal end,
+            setFunc  = function(value) sv.necroBlockSkeletal = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Blastbones",
+            tooltip  = "Block Blastbones, Stalking Blastbones, and Viscous Blastbones near witnesses.",
+            disabled = function() return not sv.showNecroBlock end,
+            getFunc  = function() return sv.necroBlockBlastbones end,
+            setFunc  = function(value) sv.necroBlockBlastbones = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Grave Grasp",
+            tooltip  = "Block Grave Grasp, Ghostly Embrace, and Empowering Grasp near witnesses.",
+            disabled = function() return not sv.showNecroBlock end,
+            getFunc  = function() return sv.necroBlockGraveGrasp end,
+            setFunc  = function(value) sv.necroBlockGraveGrasp = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Bone Golem",
+            tooltip  = "Block Bone Golem, Pummeling Golem, and Ravenous Golem near witnesses.",
+            disabled = function() return not sv.showNecroBlock end,
+            getFunc  = function() return sv.necroBlockGolem end,
+            setFunc  = function(value) sv.necroBlockGolem = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Frozen Colossus",
+            tooltip  = "Block Frozen Colossus, Glacial Colossus, and Pestilent Colossus near witnesses.",
+            disabled = function() return not sv.showNecroBlock end,
+            getFunc  = function() return sv.necroBlockColossus end,
+            setFunc  = function(value) sv.necroBlockColossus = value end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -461,6 +576,12 @@ local function RegisterSettings()
                 sv.gcdDesaturate = defaults.gcdDesaturate
                 sv.gcdAnimation  = defaults.gcdAnimation
                 sv.gcdPotion     = defaults.gcdPotion
+                sv.showNecroBlock       = defaults.showNecroBlock
+                sv.necroBlockSkeletal   = defaults.necroBlockSkeletal
+                sv.necroBlockBlastbones = defaults.necroBlockBlastbones
+                sv.necroBlockGraveGrasp = defaults.necroBlockGraveGrasp
+                sv.necroBlockGolem      = defaults.necroBlockGolem
+                sv.necroBlockColossus   = defaults.necroBlockColossus
                 ApplySettings()
                 if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
@@ -582,13 +703,20 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.gcdType       == nil then sv.gcdType       = defaults.gcdType       end
     if sv.gcdDesaturate == nil then sv.gcdDesaturate = defaults.gcdDesaturate end
     if sv.gcdAnimation  == nil then sv.gcdAnimation  = defaults.gcdAnimation  end
-    if sv.gcdPotion     == nil then sv.gcdPotion     = defaults.gcdPotion     end
+    if sv.gcdPotion      == nil then sv.gcdPotion      = defaults.gcdPotion      end
+    if sv.showNecroBlock       == nil then sv.showNecroBlock       = defaults.showNecroBlock       end
+    if sv.necroBlockSkeletal   == nil then sv.necroBlockSkeletal   = defaults.necroBlockSkeletal   end
+    if sv.necroBlockBlastbones == nil then sv.necroBlockBlastbones = defaults.necroBlockBlastbones end
+    if sv.necroBlockGraveGrasp == nil then sv.necroBlockGraveGrasp = defaults.necroBlockGraveGrasp end
+    if sv.necroBlockGolem      == nil then sv.necroBlockGolem      = defaults.necroBlockGolem      end
+    if sv.necroBlockColossus   == nil then sv.necroBlockColossus   = defaults.necroBlockColossus   end
 
     ApplySettings()
     CreateMarkerPool()
     RegisterSettings()
     HookNameplates()
     HookGCDCooldown()
+    HookNecroBlock()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,               OnCombatStateChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_RETICLE_TARGET_CHANGED,            OnTargetChanged)

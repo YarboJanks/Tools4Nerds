@@ -20,5 +20,13 @@
       <Anchor point="TOPLEFT" relativeTo="GuiRoot" relativePoint="TOPLEFT" />
       <Anchor point="BOTTOMRIGHT" relativeTo="GuiRoot" relativePoint="BOTTOMRIGHT" />
     </TopLevelControl>
+    <TopLevelControl name="T4NNecroBlockContainer" hidden="true" mouseEnabled="false">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="0" offsetY="-50" />
+      <Controls>
+        <Label name="T4NNecroBlockLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="CENTER" relativeTo="T4NNecroBlockContainer" relativePoint="CENTER" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
   </Controls>
 </GuiXml>
