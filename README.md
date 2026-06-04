@@ -2,7 +2,7 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, debuff count, Mara's Balm cooldown, queue pop-ups, and global cooldown tracking.
+A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, queue pop-ups, global cooldown tracking, and criminal ability blocking for Necromancer, Werewolf, and Vampire.
 
 ## Features
 
@@ -15,12 +15,6 @@ Briefly shows a "Blocking" label when your attack is blocked, giving you immedia
 ### Crit Hit Marker
 Plays an animated overlay on your screen when you land a critical hit. Size and color are configurable.
 
-### Debuff Counter
-Displays a live count of negative effects currently active on you. When the count reaches 6 or more, the counter flashes rapidly as a warning. The counter is draggable — click and drag it anywhere on screen. Font size and color are configurable independently of the other indicators.
-
-### Mara's Balm Tracker
-Automatically appears when 5 or more pieces of the Mara's Balm set are equipped (including backbar weapons) and hides when the set is removed. Displays **MARAS** in green when ready. When on cooldown, shows **MARAS 24s** (counting down) in red until it's ready again. Draggable — click and drag to reposition. Font size is configurable.
-
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
 
@@ -32,22 +26,20 @@ Adds a cooldown animation directly over each action bar slot during the global c
 - **Ready animation** — flashes the slot when the GCD expires
 - **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
 
-### Necromancer Guard Protection
-Hard-blocks criminal Necromancer abilities from firing while you are in a justice-enabled zone, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. Only activates for Necromancer class characters.
+### Guard Protection
+Hard-blocks criminal abilities from firing while you are in a town or city, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. Each creature type has its own master toggle and per-ability-group sub-toggles.
 
-Blocked ability groups (each toggleable independently):
-
-**Necromancer** (raise undead abilities):
+**Necromancer** (raise undead abilities — Necromancer class only):
 - **Skeletal Mage** — Skeletal Mage, Skeletal Archer, Skeletal Arcanist
 - **Blastbones** — Blastbones, Stalking Blastbones, Viscous Blastbones
 - **Grave Grasp** — Grave Grasp, Ghostly Embrace, Empowering Grasp
 - **Bone Golem** — Bone Golem, Pummeling Golem, Ravenous Golem
 - **Frozen Colossus** — Frozen Colossus, Glacial Colossus, Pestilent Colossus
 
-**Werewolf** (works for any class with lycanthropy):
+**Werewolf** (any class with lycanthropy):
 - **Transformation** — Werewolf Transformation, Werewolf Berserker, Pack Leader
 
-**Vampire** (works for any class with vampirism):
+**Vampire** (any class with vampirism):
 - **Blood Scion** — Blood Scion, Perfect Blood Scion
 
 ## Installation
@@ -75,31 +67,22 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Enable Crit Hit Marker | Toggle the crit overlay |
 | Marker Size | Size of the crit marker in pixels |
 | Marker Color | Color tint of the crit marker (white = no tint) |
-| Enable Debuff Counter | Toggle the debuff counter |
-| Debuff Counter Color | Color of the debuff counter text |
-| Counter Size | Font size of the debuff counter |
-| Reset Position | Snap the debuff counter back to its default position |
-| Enable Mara's Balm Tracker | Toggle the MARAS ready/cooldown indicator |
-| Mara's Balm Text Size | Font size of the MARAS indicator |
-| Mara's Balm Reset Position | Snap the MARAS indicator back to its default position |
 | Auto Accept Queue | Toggle automatic queue acceptance |
 | Enable GCD Overlay | Toggle the global cooldown animation on action bar slots |
 | GCD Animation Style | Ascending, Descending, or Radial cooldown animation |
 | Desaturate Icons | Grey out ability icons during the GCD |
 | Ready Animation | Flash the slot when the GCD expires |
 | Show Potion Cooldown | Extend the GCD overlay to consumable slots |
-| Enable Guard Protection | Block criminal Necromancer abilities in justice zones (Necromancer only) |
+| Enable Guard Protection (Necro) | Block criminal Necromancer abilities in towns |
 | Block Skeletal Mage | Block Skeletal Mage and morphs near witnesses |
 | Block Blastbones | Block Blastbones and morphs near witnesses |
 | Block Grave Grasp | Block Grave Grasp and morphs near witnesses |
 | Block Bone Golem | Block Bone Golem and morphs near witnesses |
 | Block Frozen Colossus | Block Frozen Colossus and morphs near witnesses |
-| Enable Werewolf Protection | Block Werewolf Transformation near witnesses (any class) |
+| Enable Werewolf Protection | Block Werewolf Transformation in towns (any class) |
 | Block Transformation | Block Werewolf Transformation and morphs |
-| Enable Vampire Protection | Block Vampire transformation near witnesses (any class) |
-| Block Blood Scion | Block Blood Scion and Perfect Blood Scion near witnesses |
-
-Each feature section has a **Test** button to preview how that indicator looks without needing to be in combat. The Mara's Balm test runs a 5-second countdown so you can see the full red → green transition, and remains visible even with the settings panel open.
+| Enable Vampire Protection | Block Vampire transformation in towns (any class) |
+| Block Blood Scion | Block Blood Scion and Perfect Blood Scion |
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
@@ -109,3 +92,4 @@ Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOn
 - The CC immunity tracker only activates when you are in combat and have a player targeted.
 - In Battlegrounds and Cyrodiil, CC immunity is tracked via combat events (when you land a CC on your target) rather than buff reading, which may not be available in all PvP contexts.
 - The nameplate immunity dot uses the same combat-event inference and will appear on enemy nameplates during their CC immunity window.
+- Guard protection detects towns and cities by checking whether your current sub-location name differs from the zone map name. It does not block in dungeons, trials, or arenas. If you are at a named keep or outpost in Cyrodiil, the block may fire there too — disable the relevant toggle before PvP if needed.
