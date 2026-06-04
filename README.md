@@ -2,7 +2,7 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, queue pop-ups, global cooldown tracking, and criminal ability blocking for Necromancer, Werewolf, and Vampire.
+An Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, queue pop-ups, global cooldown tracking, and criminal ability blocking for Necromancer, Werewolf, and Vampire.
 
 ## Features
 
