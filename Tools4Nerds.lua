@@ -209,20 +209,6 @@ local function HookNecroGuardBlock()
 end
 -- ── end Necromancer Guard Protection ─────────────────────────────────────────
 
--- Diagnostic: /script Tools4Nerds_NecroDebug()
-function Tools4Nerds_NecroDebug()
-    d("[T4N] MapName=" .. tostring(GetMapName and GetMapName()))
-    d("[T4N] LocationName=" .. tostring(GetPlayerLocationName and GetPlayerLocationName()))
-    d("[T4N] IsInTownArea=" .. tostring(IsInTownArea()))
-    d("[T4N] ClassId=" .. tostring(GetUnitClassId("player")) .. " (Necro=" .. NECROMANCER_CLASS_ID .. ")")
-    d("[T4N] ZoneId=" .. tostring(GetZoneId(GetUnitZoneIndex("player"))))
-    for i = 3, 8 do
-        local name = GetSlotName(i)
-        if name and name ~= "" then
-            d("  slot[" .. i .. "] " .. name .. (CRIMINAL_NECRO_ABILITIES[name] and " (CRIMINAL)" or ""))
-        end
-    end
-end
 
 local function ShowMarker()
     local ctrl = table.remove(markerPool)
