@@ -2,7 +2,7 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, debuff count, Mara's Balm cooldown, and queue pop-ups.
+A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, debuff count, Mara's Balm cooldown, queue pop-ups, and global cooldown tracking.
 
 ## Features
 
@@ -23,6 +23,24 @@ Automatically appears when 5 or more pieces of the Mara's Balm set are equipped 
 
 ### Auto Queue Accept
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
+
+### Global Cooldown (GCD) Overlay
+Adds a cooldown animation directly over each action bar slot during the global cooldown, giving you a clear visual indicator of when your next ability is available.
+
+- **Animation style** — Ascending (bottom to top), Descending (top to bottom), or Radial
+- **Icon desaturation** — greys out ability icons during the GCD
+- **Ready animation** — flashes the slot when the GCD expires
+- **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
+
+### Necromancer Guard Protection
+Hard-blocks criminal Necromancer abilities from firing while you are in a justice-enabled zone, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. Only activates for Necromancer class characters.
+
+Blocked ability groups (each toggleable independently):
+- **Skeletal Mage** — Skeletal Mage, Skeletal Archer, Skeletal Arcanist
+- **Blastbones** — Blastbones, Stalking Blastbones, Viscous Blastbones
+- **Grave Grasp** — Grave Grasp, Ghostly Embrace, Empowering Grasp
+- **Bone Golem** — Bone Golem, Pummeling Golem, Ravenous Golem
+- **Frozen Colossus** — Frozen Colossus, Glacial Colossus, Pestilent Colossus
 
 ## Installation
 
@@ -57,20 +75,22 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Mara's Balm Text Size | Font size of the MARAS indicator |
 | Mara's Balm Reset Position | Snap the MARAS indicator back to its default position |
 | Auto Accept Queue | Toggle automatic queue acceptance |
+| Enable GCD Overlay | Toggle the global cooldown animation on action bar slots |
+| GCD Animation Style | Ascending, Descending, or Radial cooldown animation |
+| Desaturate Icons | Grey out ability icons during the GCD |
+| Ready Animation | Flash the slot when the GCD expires |
+| Show Potion Cooldown | Extend the GCD overlay to consumable slots |
+| Enable Guard Protection | Block criminal Necromancer abilities in justice zones (Necromancer only) |
+| Block Skeletal Mage | Block Skeletal Mage and morphs near witnesses |
+| Block Blastbones | Block Blastbones and morphs near witnesses |
+| Block Grave Grasp | Block Grave Grasp and morphs near witnesses |
+| Block Bone Golem | Block Bone Golem and morphs near witnesses |
+| Block Frozen Colossus | Block Frozen Colossus and morphs near witnesses |
 
 Each feature section has a **Test** button to preview how that indicator looks without needing to be in combat. The Mara's Balm test runs a 5-second countdown so you can see the full red → green transition, and remains visible even with the settings panel open.
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
-
-### Slash Commands
-| Command | Description |
-|---------|-------------|
-| `/t4n debug` | Prints current state to chat — combat flag, target type, buff count, CC tracking status, and tick state. Useful for diagnosing why an indicator isn't showing. |
-| `/t4n debugplayer` | Logs all effect changes on the player for 60 seconds. Useful for identifying buff/debuff names and durations. |
-| `/t4n debugcombat` | Logs all combat events involving the player for 60 seconds. Useful for identifying ability IDs for set procs. |
-| `/t4n debugfx` | Logs the next 15 effect changes on any unit. |
-| `/t4n debugsets` | Prints all equipped set IDs, names, and piece counts. Useful for diagnosing set detection issues. |
 
 ## Notes
 

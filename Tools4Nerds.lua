@@ -170,13 +170,8 @@ end
 -- ── end GCD Overlay ───────────────────────────────────────────────────────────
 
 -- ── Necromancer Guard Protection ─────────────────────────────────────────────
--- Hooks ActionButton.Use to prevent criminal Necromancer abilities from firing
--- when justice witnesses are present, blocking the guard-aggro trigger entirely.
-local NECROMANCER_CLASS_ID = 6
+local NECROMANCER_CLASS_ID = 5
 
--- Abilities ESO flags as criminal acts near witnesses (raises/summons undead).
--- Values are the sv key that controls that group's toggle.
--- To verify a slot name in-game: /script d(GetSlotName(3))  (replace 3 with slot #)
 local CRIMINAL_NECRO_ABILITIES = {
     ["Skeletal Mage"]       = "necroBlockSkeletal",   ["Skeletal Archer"]     = "necroBlockSkeletal",   ["Skeletal Arcanist"]   = "necroBlockSkeletal",
     ["Blastbones"]          = "necroBlockBlastbones", ["Stalking Blastbones"] = "necroBlockBlastbones", ["Viscous Blastbones"]  = "necroBlockBlastbones",
@@ -185,44 +180,29 @@ local CRIMINAL_NECRO_ABILITIES = {
     ["Frozen Colossus"]     = "necroBlockColossus",   ["Glacial Colossus"]    = "necroBlockColossus",   ["Pestilent Colossus"]  = "necroBlockColossus",
 }
 
-local necroBlockTimerId = 0
+local isInJusticeZone = false
 
-local function ShowNecroBlockWarning(abilityName)
-    T4NNecroBlockLabel:SetText(abilityName .. "  BLOCKED")
-    T4NNecroBlockLabel:SetColor(1, 0.3, 0.1, 1)
-    T4NNecroBlockContainer:SetHidden(false)
-    necroBlockTimerId = necroBlockTimerId + 1
-    local myId = necroBlockTimerId
-    zo_callLater(function()
-        if necroBlockTimerId == myId then
-            T4NNecroBlockContainer:SetHidden(true)
-        end
-    end, 2000)
+local function OnJusticeZoneChanged(_, inJusticeZone)
+    isInJusticeZone = inJusticeZone
 end
 
-local function HookNecroBlock()
-    local origUse = ActionButton.Use
-    if not origUse then return end
-    ActionButton.Use = function(self, ...)
-        if not sv or not sv.showNecroBlock then
-            return origUse(self, ...)
-        end
-        if GetUnitClassId("player") ~= NECROMANCER_CLASS_ID then
-            return origUse(self, ...)
-        end
-        local witnesses = GetNumJusticeWitnesses and GetNumJusticeWitnesses() or 0
-        if witnesses == 0 then
-            return origUse(self, ...)
-        end
-        local slotnum  = self:GetSlot()
-        local slotName = GetSlotName(slotnum)
-        local groupKey = slotName and CRIMINAL_NECRO_ABILITIES[slotName]
+local function HookNecroGuardBlock()
+    ZO_PreHook("ZO_ActionBar_CanUseActionSlots", function()
+        if not sv or not sv.showNecroBlock then return end
+        if GetUnitClassId("player") ~= NECROMANCER_CLASS_ID then return end
+        if not isInJusticeZone then return end
+
+        -- ACTION_BUTTON_3..8 are skill slots and ultimate (same pattern as Azurah)
+        local bSlotID = tonumber(debug.traceback():match('keybind = "ACTION_BUTTON_(%d)'))
+        if not bSlotID or bSlotID <= 2 or bSlotID >= 9 then return end
+
+        local bSlotName = zo_strformat("<<t:1>>", GetSlotName(bSlotID))
+        local groupKey  = bSlotName and CRIMINAL_NECRO_ABILITIES[bSlotName]
         if groupKey and sv[groupKey] then
-            ShowNecroBlockWarning(slotName)
-            return
+            PlaySound(SOUNDS.ABILITY_FAILED)
+            return true
         end
-        return origUse(self, ...)
-    end
+    end)
 end
 -- ── end Necromancer Guard Protection ─────────────────────────────────────────
 
@@ -248,7 +228,6 @@ local function ApplySettings()
     local font = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.fontSize)
     T4NLabel:SetFont(font)
     T4NBlockLabel:SetFont(font)
-    T4NNecroBlockLabel:SetFont(font)
 end
 
 local function GetCCImmunityRemaining()
@@ -341,7 +320,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "3.1.0",
+        version            = "3.1.1",
     }
 
     local optionsData = {
@@ -716,7 +695,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     RegisterSettings()
     HookNameplates()
     HookGCDCooldown()
-    HookNecroBlock()
+    HookNecroGuardBlock()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,               OnCombatStateChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_RETICLE_TARGET_CHANGED,            OnTargetChanged)
@@ -724,6 +703,9 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
+    if EVENT_JUSTICE_ZONE_CHANGED then
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_JUSTICE_ZONE_CHANGED, OnJusticeZoneChanged)
+    end
 end
 
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
