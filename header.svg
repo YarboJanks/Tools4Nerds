@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 162">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d0018"/>
+      <stop offset="100%" stop-color="#001515"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="860" height="162" fill="url(#bg)" rx="10"/>
+  <rect x="8" y="8" width="844" height="146" fill="none" stroke="#CC00FF" stroke-width="1" rx="6" opacity="0.45"/>
+  <rect x="10" y="10" width="840" height="142" fill="none" stroke="#FF66AA" stroke-width="0.4" rx="5" opacity="0.2"/>
+
+  <!-- corner chars -->
+  <text font-family="monospace" font-size="11" fill="#CC00FF" opacity="0.9" x="11" y="21">╔</text>
+  <text font-family="monospace" font-size="11" fill="#CC00FF" opacity="0.9" x="841" y="21">╗</text>
+  <text font-family="monospace" font-size="11" fill="#FF66AA" opacity="0.9" x="11" y="152">╚</text>
+  <text font-family="monospace" font-size="11" fill="#FF66AA" opacity="0.9" x="841" y="152">╝</text>
+
+  <!--
+    ANSI Shadow ASCII art for TOOLS  4  NERDS
+    Split into three color sections per line:
+      TOOLS  → #CC00FF (purple) fading to #00CCAA (teal)
+      4      → #00CCAA (teal)
+      NERDS  → #CC0099 (pink) fading to #FF66AA (light pink)
+
+    Character layout per line (monospace, font-size 12):
+      col 0  : TOOLS (43 chars)
+      col 43 : gap+4+gap (16 chars: "    ██╗  ██╗    ")
+      col 59 : NERDS (42 chars)
+    Total: 101 chars × ~7.2px = ~727px, padded to 860px viewBox (offset x=66 to center)
+  -->
+
+  <!-- Line 1 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="12" y="46" xml:space="preserve">
+    <tspan x="66" fill="#CC00FF">████████╗ ██████╗  ██████╗ ██╗     ███████╗</tspan><tspan fill="#00CCAA">    ██╗  ██╗    </tspan><tspan fill="#CC0099">███╗   ██╗███████╗██████╗ ██████╗ ███████╗</tspan>
+  </text>
+  <!-- Line 2 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="12" y="61" xml:space="preserve">
+    <tspan x="66" fill="#BB00EE">╚══██╔══╝██╔═══██╗██╔═══██╗██║     ██╔════╝</tspan><tspan fill="#00CCAA">    ██║  ██║    </tspan><tspan fill="#CC2299">████╗  ██║██╔════╝██╔══██╗██╔══██╗██╔════╝</tspan>
+  </text>
+  <!-- Line 3 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="12" y="76" xml:space="preserve">
+    <tspan x="66" fill="#8822DD">   ██║   ██║   ██║██║   ██║██║     ███████╗</tspan><tspan fill="#00CCAA">    ███████║    </tspan><tspan fill="#DD3399">██╔██╗ ██║█████╗  ██████╔╝██║  ██║███████╗</tspan>
+  </text>
+  <!-- Line 4 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="12" y="91" xml:space="preserve">
+    <tspan x="66" fill="#3399BB">   ██║   ██║   ██║██║   ██║██║     ╚════██║</tspan><tspan fill="#00CCAA">    ╚════██║    </tspan><tspan fill="#EE44AA">██║╚██╗██║██╔══╝  ██╔══██╗██║  ██║╚════██║</tspan>
+  </text>
+  <!-- Line 5 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="12" y="106" xml:space="preserve">
+    <tspan x="66" fill="#00BBCC">   ██║   ╚██████╔╝╚██████╔╝███████╗███████║</tspan><tspan fill="#00CCAA">         ██║    </tspan><tspan fill="#FF55BB">██║ ╚████║███████╗██║  ██║██████╔╝███████║</tspan>
+  </text>
+  <!-- Line 6 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="12" y="121" xml:space="preserve">
+    <tspan x="66" fill="#00CCAA">   ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝</tspan><tspan fill="#00CCAA">         ╚═╝    </tspan><tspan fill="#FF66AA">╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚═════╝ ╚══════╝</tspan>
+  </text>
+
+  <!-- tagline -->
+  <text font-family="'Courier New',Courier,monospace" font-size="11" text-anchor="middle"
+        x="430" y="143" fill="#00CCAA" letter-spacing="2" opacity="0.65">
+    pvp combat utilities · elder scrolls online
+  </text>
+</svg>
