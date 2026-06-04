@@ -18,7 +18,7 @@ local ccImmuneTimes = {}
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showProtectorAlert" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -42,7 +42,8 @@ local defaults = {
     gcdDesaturate = true,
     gcdAnimation  = false,
     gcdPotion     = false,
-    showGuardBlock = true,
+    showGuardBlock      = true,
+    showProtectorAlert  = true,
 }
 
 local markerPool = {}
@@ -205,6 +206,48 @@ local function HookCriminalAbilityBlock()
 end
 -- ── end Criminal Ability Guard Protection ─────────────────────────────────────
 
+-- ── Protector Hunter ─────────────────────────────────────────────────────────
+local ASYLUM_ZONE_ID   = 1000
+local STATIC_SHIELD_ID = 96010
+local isInAsylum       = false
+
+local function ShowProtectorAlert()
+    if not sv or not sv.showProtectorAlert then return end
+    T4NProtectorLabel:SetFont("EsoUI/Common/Fonts/Univers67.otf|36|thick-outline")
+    T4NProtectorLabel:SetText("ORDINATED PROTECTOR")
+    T4NProtectorLabel:SetColor(1, 0.35, 0, 1)
+    T4NProtectorContainer:SetHidden(false)
+end
+
+local function HideProtectorAlert()
+    T4NProtectorContainer:SetHidden(true)
+end
+
+local function OnProtectorCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
+    abilityActionSlotType, sourceName, sourceType, targetName, targetType,
+    hitValue, powerType, damageType, log, sourceUnitId, targetUnitId, abilityId)
+    if abilityId ~= STATIC_SHIELD_ID then return end
+    if result == ACTION_RESULT_EFFECT_GAINED then
+        ShowProtectorAlert()
+    elseif result == ACTION_RESULT_EFFECT_FADED then
+        HideProtectorAlert()
+    end
+end
+
+local function CheckAsylumZone()
+    local inAsylum = GetZoneNameById and GetUnitZone and
+        (GetZoneNameById(ASYLUM_ZONE_ID) == GetUnitZone("player")) or false
+    if inAsylum == isInAsylum then return end
+    isInAsylum = inAsylum
+    if isInAsylum then
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorCombatEvent)
+    else
+        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT)
+        HideProtectorAlert()
+    end
+end
+-- ── end Protector Hunter ──────────────────────────────────────────────────────
+
 
 local function ShowMarker()
     local ctrl = table.remove(markerPool)
@@ -320,7 +363,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "3.3.0",
+        version            = "3.4.0",
     }
 
     local optionsData = {
@@ -487,6 +530,20 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Protector Hunter",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Protector Alert",
+            tooltip = "Show a persistent on-screen alert when an Ordinated Protector spawns in Asylum Sanctorium (vAS). The alert clears automatically when the protector is killed.",
+            getFunc = function() return sv.showProtectorAlert end,
+            setFunc = function(value)
+                sv.showProtectorAlert = value
+                if not value then HideProtectorAlert() end
+            end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -515,7 +572,9 @@ local function RegisterSettings()
                 sv.gcdDesaturate = defaults.gcdDesaturate
                 sv.gcdAnimation  = defaults.gcdAnimation
                 sv.gcdPotion     = defaults.gcdPotion
-                sv.showGuardBlock = defaults.showGuardBlock
+                sv.showGuardBlock      = defaults.showGuardBlock
+                sv.showProtectorAlert  = defaults.showProtectorAlert
+                HideProtectorAlert()
                 ApplySettings()
                 if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
@@ -643,7 +702,8 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.necroBlockBlastbones == nil then sv.necroBlockBlastbones = defaults.necroBlockBlastbones end
     if sv.necroBlockGraveGrasp == nil then sv.necroBlockGraveGrasp = defaults.necroBlockGraveGrasp end
     if sv.necroBlockGolem      == nil then sv.necroBlockGolem      = defaults.necroBlockGolem      end
-    if sv.showGuardBlock == nil then sv.showGuardBlock = defaults.showGuardBlock end
+    if sv.showGuardBlock      == nil then sv.showGuardBlock      = defaults.showGuardBlock      end
+    if sv.showProtectorAlert  == nil then sv.showProtectorAlert  = defaults.showProtectorAlert  end
 
     ApplySettings()
     CreateMarkerPool()
@@ -651,6 +711,9 @@ local function OnAddOnLoaded(eventCode, addOnName)
     HookNameplates()
     HookGCDCooldown()
     HookCriminalAbilityBlock()
+
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_ACTIVATED, function() CheckAsylumZone() end)
+    CheckAsylumZone()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,               OnCombatStateChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_RETICLE_TARGET_CHANGED,            OnTargetChanged)
