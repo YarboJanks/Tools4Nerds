@@ -6,19 +6,19 @@ An Elder Scrolls Online addon that surfaces combat information you'd otherwise h
 
 ## Features
 
-### CC Immunity Tracker
+### CC Immunity Tracker [PvP]
 Displays a countdown when your target is immune to crowd control, so you know exactly when it's safe to land your next CC. Works via buff detection in duels and open world, and via combat event inference in Battlegrounds and Cyrodiil.
 
-### Block Indicator
+### Block Indicator [PvP]
 Briefly shows a "Blocking" label when your attack is blocked, giving you immediate feedback to adjust your rotation.
 
-### Crit Hit Marker
+### Crit Hit Marker [PvP/PvE]
 Plays an animated overlay on your screen when you land a critical hit. Size and color are configurable.
 
-### Auto Queue Accept
+### Auto Queue Accept [PvP/PvE]
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
 
-### Global Cooldown (GCD) Overlay
+### Global Cooldown (GCD) Overlay [PvP/PvE]
 Adds a cooldown animation directly over each action bar slot during the global cooldown, giving you a clear visual indicator of when your next ability is available.
 
 - **Animation style** — Ascending (bottom to top), Descending (top to bottom), or Radial
@@ -26,7 +26,7 @@ Adds a cooldown animation directly over each action bar slot during the global c
 - **Ready animation** — flashes the slot when the GCD expires
 - **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
 
-### Guard Protection
+### Guard Protection [PvP/PvE]
 Hard-blocks criminal abilities from firing while you are in a town or city, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. A single toggle covers all criminal ability types — no per-class or per-ability configuration needed.
 
 Blocked abilities:
