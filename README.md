@@ -2,23 +2,23 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-A PvP-focused Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, queue pop-ups, global cooldown tracking, and criminal ability blocking for Necromancer, Werewolf, and Vampire.
+An Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, queue pop-ups, global cooldown tracking, and criminal ability blocking for Necromancer, Werewolf, and Vampire.
 
 ## Features
 
-### CC Immunity Tracker
+### CC Immunity Tracker [PvP]
 Displays a countdown when your target is immune to crowd control, so you know exactly when it's safe to land your next CC. Works via buff detection in duels and open world, and via combat event inference in Battlegrounds and Cyrodiil.
 
-### Block Indicator
+### Block Indicator [PvP]
 Briefly shows a "Blocking" label when your attack is blocked, giving you immediate feedback to adjust your rotation.
 
-### Crit Hit Marker
+### Crit Hit Marker [PvP/PvE]
 Plays an animated overlay on your screen when you land a critical hit. Size and color are configurable.
 
-### Auto Queue Accept
+### Auto Queue Accept [PvP/PvE]
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
 
-### Global Cooldown (GCD) Overlay
+### Global Cooldown (GCD) Overlay [PvP/PvE]
 Adds a cooldown animation directly over each action bar slot during the global cooldown, giving you a clear visual indicator of when your next ability is available.
 
 - **Animation style** — Ascending (bottom to top), Descending (top to bottom), or Radial
