@@ -26,6 +26,9 @@ Adds a cooldown animation directly over each action bar slot during the global c
 - **Ready animation** — flashes the slot when the GCD expires
 - **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
 
+### Protector Hunter
+Displays a persistent on-screen alert ("ORDINATED PROTECTOR") whenever an Ordinated Protector is active in the Veteran Asylum Sanctorium (vAS) trial. The alert appears the moment the protector's Static Shield ability is detected on Saint Olms the Just and clears automatically when the last protector is killed. Only active while inside Asylum Sanctorium — no configuration needed beyond the toggle.
+
 ### Guard Protection
 Hard-blocks criminal abilities from firing while you are in a town or city, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. A single toggle covers all criminal ability types — no per-class or per-ability configuration needed.
 
@@ -66,6 +69,7 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Ready Animation | Flash the slot when the GCD expires |
 | Show Potion Cooldown | Extend the GCD overlay to consumable slots |
 | Enable Guard Protection | Block all criminal abilities in towns (Necromancer, Werewolf, Vampire) |
+| Enable Protector Alert | Show a persistent alert when an Ordinated Protector spawns in vAS |
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
