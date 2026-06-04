@@ -1,0 +1,85 @@
+# Tools4Nerds — Agent Guide
+
+## Project Overview
+
+Tools4Nerds is an Elder Scrolls Online addon targeting PvP players. It provides:
+- **CC immunity countdown** — tracks when your target is immune to crowd control
+- **Block indicator** — briefly shows when your attack is blocked
+- **Crit hit marker** — animated overlay when you land a critical hit
+- **Auto queue accept** — automatically accepts dungeon and PvP queue pop-ups
+
+## File Structure
+
+| File | Purpose |
+|------|---------|
+| `Tools4Nerds.lua` | All addon logic |
+| `Tools4Nerds.xml` | UI control definitions (`T4NCCContainer`, `T4NBlockContainer`, `T4NCritContainer`) |
+| `Tools4Nerds.txt` | Addon manifest — version, dependencies, load order |
+| `Tools4NerdsBindings.xml` | Keybinding definitions |
+| `marker.dds` | Texture used for the crit hit marker |
+| `CHANGELOG.md` | Version history |
+
+## ESO API Notes
+
+**Buff visibility in PvP** — `GetNumBuffs("reticleover")` and `GetUnitBuffInfo` do not reliably return enemy player buffs in all contexts. Duels (open world) work; Battlegrounds and Cyrodiil may not. Do not rely solely on buff reading for CC immunity tracking — use combat event inference (`ccImmuneTimes`) as the primary or fallback mechanism.
+
+**Saved variables** — `sv` points to either `Tools4NerdsSV` (per-character) or `Tools4NerdsAccountSV` (account-wide) depending on the sync setting. Always read and write through `sv`, never directly to the underlying tables.
+
+**LAM (LibAddonMenu)** — settings panel is registered via `LibAddonMenu2`. The panel is defined in `RegisterSettings()`. LAM must be listed as a dependency in `Tools4Nerds.txt`.
+
+**Unit tags** — `"reticleover"` is the current target. `"player"` is the local player. These are the only two unit tags used in this addon.
+
+**Tick loop** — CC immunity polling uses a self-rescheduling `zo_callLater` loop (100ms interval). The loop starts from `UpdateIndicator()` and stops itself when the player leaves combat or loses a player target. `tickId` is used to cancel stale ticks.
+
+## Code Conventions
+
+- All UI control names are prefixed with `T4N` (e.g. `T4NLabel`, `T4NBlockContainer`)
+- `sv` is the active saved variable table — always use this, never the raw global
+- `accountSv` holds account-level saved variables including the sync flag
+- CC combat result types are stored in `CC_RESULTS` table, populated on load from `ACTION_RESULT_*` constants
+- `ccImmuneTimes` maps cleaned target names to expiry timestamps for combat-event-based CC inference
+- Control names are stripped of color codes with `:gsub("%^.*", "")` before use as table keys
+
+## Testing
+
+There are no automated tests. All validation must be done in-game.
+
+- **Settings panel test buttons** — "Test CC Indicator", "Test Block Indicator", and "Test Marker" in the LAM settings panel trigger each feature without needing a real combat event
+- **`/t4n debug`** — prints current state to chat: combat flag, target unit type, buff count, CC buff presence, inferred CC remaining, and tick status. Use this when diagnosing why an indicator isn't showing
+- When making changes to combat event handling, test in both a duel and a Battleground as behavior can differ
+
+## Changelog Rule
+
+**Do not update `CHANGELOG.md` or bump the version mid-session.** Make all code changes freely. Only when the user signals they are ready to commit, do the following as a single step:
+
+1. Add an entry to `CHANGELOG.md` covering all changes made since the last version
+2. Update the version in **both** `Tools4Nerds.txt` (`## Version:`) and the `panelData.version` string inside `RegisterSettings()` in `Tools4Nerds.lua`
+
+Use [Semantic Versioning](https://semver.org/) when choosing the new version number:
+
+- **Patch** (`x.x.1`) — bug fixes, no new features
+- **Minor** (`x.1.0`) — new features, backwards compatible
+- **Major** (`2.0.0`) — breaking changes, significant renames or rewrites
+
+## README Rule
+
+**Always update `README.md` when any of the following change:**
+
+- A feature is added, removed, or renamed
+- A setting is added, removed, or its behaviour changes
+- A slash command is added, removed, or its output changes
+- Installation requirements change (e.g. new dependencies)
+- The keybinding or its behaviour changes
+
+The README is user-facing — keep it accurate and in plain language. Do not document internal implementation details there; those belong in `AGENTS.md`.
+
+The `header.svg` file contains the ASCII art banner embedded at the top of the README. It does not need to be updated for routine changes, but should be regenerated if the addon is renamed.
+
+## No-Go List
+
+- Do not read enemy player buffs as the sole source of truth for CC immunity — it is unreliable in BGs/Cyrodiil; always ensure `ccImmuneTimes` inference is in place as a fallback
+- Do not use `GetNumBuffs("player")` to count player effects — it returns 0 in practice. Player debuff count is tracked via `EVENT_EFFECT_CHANGED` events and stored in the `debuffCount` local
+- In `EVENT_EFFECT_CHANGED`, the `buffType` parameter (position 10) is always an empty string — do not use it. Use `effectType` (position 11) instead: `1` = buff, `2` = debuff. Similarly, `changeType` values are raw integers: `1` = gained, `2` = faded, `3` = full refresh
+- Do not access `Tools4NerdsSV` or `Tools4NerdsAccountSV` directly from feature code — always go through `sv`. The only legitimate exception is the sync toggle in `RegisterSettings()`, which must copy settings between the two tables when switching scope.
+- Do not add `sleep` or long `zo_callLater` chains for polling — use the existing tick loop pattern
+- `GetNumEquippedItemSets` and `GetEquippedItemSetInfo` do not exist in ESO's API. To check equipped item sets, iterate `BAG_WORN` slots **0–25** with `GetItemLink(BAG_WORN, slot)` and pass the result to `GetItemLinkSetInfo(itemLink)` which returns `(hasSet, setName, numBonuses, numEquipped, maxEquipped, setId)`. Use 0–25 (not 0–15) — backbar weapon slots sit above 15. Do not rely on `numEquipped` from this call to count backbar pieces; it only reflects the active weapon bar. Count matching slots manually instead.
