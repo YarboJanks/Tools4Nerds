@@ -180,17 +180,20 @@ local CRIMINAL_NECRO_ABILITIES = {
     ["Frozen Colossus"]     = "necroBlockColossus",   ["Glacial Colossus"]    = "necroBlockColossus",   ["Pestilent Colossus"]  = "necroBlockColossus",
 }
 
-local isInJusticeZone = false
-
-local function OnJusticeZoneChanged(_, inJusticeZone)
-    isInJusticeZone = inJusticeZone
+-- In towns/cities the player sub-location (district name) differs from the map
+-- name. In dungeons, trials, and arenas they are always identical, so this
+-- cleanly separates justice-zone content from group-instance content.
+local function IsInTownArea()
+    local mapName = GetMapName and GetMapName()
+    local locName = GetPlayerLocationName and GetPlayerLocationName()
+    return mapName ~= nil and locName ~= nil and locName ~= "" and locName ~= mapName
 end
 
 local function HookNecroGuardBlock()
     ZO_PreHook("ZO_ActionBar_CanUseActionSlots", function()
         if not sv or not sv.showNecroBlock then return end
         if GetUnitClassId("player") ~= NECROMANCER_CLASS_ID then return end
-        if not isInJusticeZone then return end
+        if not IsInTownArea() then return end
 
         -- ACTION_BUTTON_3..8 are skill slots and ultimate (same pattern as Azurah)
         local bSlotID = tonumber(debug.traceback():match('keybind = "ACTION_BUTTON_(%d)'))
@@ -206,28 +209,18 @@ local function HookNecroGuardBlock()
 end
 -- ── end Necromancer Guard Protection ─────────────────────────────────────────
 
--- Temporary diagnostic: /script Tools4Nerds_JusticeDebug()
-function Tools4Nerds_JusticeDebug()
-    local probes = {
-        {"ZoneId",                        function() return GetZoneId(GetUnitZoneIndex("player")) end},
-        {"GetSubZoneName",                function() return GetSubZoneName and GetSubZoneName() end},
-        {"GetZoneName",                   function() return GetZoneName and GetZoneName(GetUnitZoneIndex("player")) end},
-        {"GetMapName",                    function() return GetMapName and GetMapName() end},
-        {"GetPlayerLocationName",         function() return GetPlayerLocationName and GetPlayerLocationName() end},
-        {"GetCurrentZoneHouseId",         function() return GetCurrentZoneHouseId and GetCurrentZoneHouseId() end},
-        {"IsPlayerInOutlawsRefuge",       function() return IsPlayerInOutlawsRefuge and IsPlayerInOutlawsRefuge() end},
-        {"GetGroupType",                  function() return GetGroupType and GetGroupType() end},
-        {"IsActiveWorldPVPAvailable",     function() return IsActiveWorldPVPAvailable and IsActiveWorldPVPAvailable() end},
-        {"GetActivityId",                 function() return GetActivityId and GetActivityId() end},
-        {"GetCurrentLFGActivity",         function() return GetCurrentLFGActivity and GetCurrentLFGActivity() end},
-        {"GetZoneAverageLevel",           function() return GetZoneAverageLevel and GetZoneAverageLevel(GetUnitZoneIndex("player")) end},
-        {"GetZoneDifficulty",             function() return GetZoneDifficulty and GetZoneDifficulty(GetUnitZoneIndex("player")) end},
-        {"isInJusticeZone(local)",        function() return isInJusticeZone end},
-    }
-    for _, entry in ipairs(probes) do
-        local name, fn = entry[1], entry[2]
-        local ok, result = pcall(fn)
-        d("[T4N] " .. name .. " = " .. (ok and tostring(result) or "ERR:" .. tostring(result)))
+-- Diagnostic: /script Tools4Nerds_NecroDebug()
+function Tools4Nerds_NecroDebug()
+    d("[T4N] MapName=" .. tostring(GetMapName and GetMapName()))
+    d("[T4N] LocationName=" .. tostring(GetPlayerLocationName and GetPlayerLocationName()))
+    d("[T4N] IsInTownArea=" .. tostring(IsInTownArea()))
+    d("[T4N] ClassId=" .. tostring(GetUnitClassId("player")) .. " (Necro=" .. NECROMANCER_CLASS_ID .. ")")
+    d("[T4N] ZoneId=" .. tostring(GetZoneId(GetUnitZoneIndex("player"))))
+    for i = 3, 8 do
+        local name = GetSlotName(i)
+        if name and name ~= "" then
+            d("  slot[" .. i .. "] " .. name .. (CRIMINAL_NECRO_ABILITIES[name] and " (CRIMINAL)" or ""))
+        end
     end
 end
 
@@ -728,9 +721,6 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
-    if EVENT_JUSTICE_ZONE_CHANGED then
-        EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_JUSTICE_ZONE_CHANGED, OnJusticeZoneChanged)
-    end
 end
 
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
