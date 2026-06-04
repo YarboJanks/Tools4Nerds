@@ -18,7 +18,7 @@ local ccImmuneTimes = {}
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showNecroBlock", "necroBlockSkeletal", "necroBlockBlastbones", "necroBlockGraveGrasp", "necroBlockGolem", "necroBlockColossus" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showNecroBlock", "necroBlockSkeletal", "necroBlockBlastbones", "necroBlockGraveGrasp", "necroBlockGolem", "necroBlockColossus", "showWWBlock", "wwBlockTransform", "showVampBlock", "vampBlockTransform" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -48,6 +48,10 @@ local defaults = {
     necroBlockGraveGrasp = true,
     necroBlockGolem      = true,
     necroBlockColossus   = true,
+    showWWBlock          = true,
+    wwBlockTransform     = true,
+    showVampBlock        = true,
+    vampBlockTransform   = true,
 }
 
 local markerPool = {}
@@ -169,15 +173,30 @@ local function HookGCDCooldown()
 end
 -- ── end GCD Overlay ───────────────────────────────────────────────────────────
 
--- ── Necromancer Guard Protection ─────────────────────────────────────────────
-local NECROMANCER_CLASS_ID = 5
+-- ── Criminal Ability Guard Protection ────────────────────────────────────────
+-- Maps ability name → per-group sv toggle key.
+local CRIMINAL_ABILITIES = {
+    -- Necromancer (raise undead near guards)
+    ["Skeletal Mage"]            = "necroBlockSkeletal",   ["Skeletal Archer"]      = "necroBlockSkeletal",   ["Skeletal Arcanist"]    = "necroBlockSkeletal",
+    ["Blastbones"]               = "necroBlockBlastbones", ["Stalking Blastbones"]  = "necroBlockBlastbones", ["Viscous Blastbones"]   = "necroBlockBlastbones",
+    ["Grave Grasp"]              = "necroBlockGraveGrasp", ["Ghostly Embrace"]      = "necroBlockGraveGrasp", ["Empowering Grasp"]     = "necroBlockGraveGrasp",
+    ["Bone Golem"]               = "necroBlockGolem",      ["Pummeling Golem"]      = "necroBlockGolem",      ["Ravenous Golem"]       = "necroBlockGolem",
+    ["Frozen Colossus"]          = "necroBlockColossus",   ["Glacial Colossus"]     = "necroBlockColossus",   ["Pestilent Colossus"]   = "necroBlockColossus",
+    -- Werewolf (transformation near guards — any class)
+    ["Werewolf Transformation"]  = "wwBlockTransform",     ["Werewolf Berserker"]   = "wwBlockTransform",     ["Pack Leader"]          = "wwBlockTransform",
+    -- Vampire (transformation near guards — any class)
+    ["Blood Scion"]              = "vampBlockTransform",   ["Perfect Blood Scion"]  = "vampBlockTransform",
+}
 
-local CRIMINAL_NECRO_ABILITIES = {
-    ["Skeletal Mage"]       = "necroBlockSkeletal",   ["Skeletal Archer"]     = "necroBlockSkeletal",   ["Skeletal Arcanist"]   = "necroBlockSkeletal",
-    ["Blastbones"]          = "necroBlockBlastbones", ["Stalking Blastbones"] = "necroBlockBlastbones", ["Viscous Blastbones"]  = "necroBlockBlastbones",
-    ["Grave Grasp"]         = "necroBlockGraveGrasp", ["Ghostly Embrace"]     = "necroBlockGraveGrasp", ["Empowering Grasp"]    = "necroBlockGraveGrasp",
-    ["Bone Golem"]          = "necroBlockGolem",      ["Pummeling Golem"]     = "necroBlockGolem",      ["Ravenous Golem"]      = "necroBlockGolem",
-    ["Frozen Colossus"]     = "necroBlockColossus",   ["Glacial Colossus"]    = "necroBlockColossus",   ["Pestilent Colossus"]  = "necroBlockColossus",
+-- Maps group toggle key → master enable key for two-level on/off.
+local ABILITY_MASTER = {
+    necroBlockSkeletal   = "showNecroBlock",
+    necroBlockBlastbones = "showNecroBlock",
+    necroBlockGraveGrasp = "showNecroBlock",
+    necroBlockGolem      = "showNecroBlock",
+    necroBlockColossus   = "showNecroBlock",
+    wwBlockTransform     = "showWWBlock",
+    vampBlockTransform   = "showVampBlock",
 }
 
 -- In towns/cities the player sub-location (district name) differs from the map
@@ -189,10 +208,10 @@ local function IsInTownArea()
     return mapName ~= nil and locName ~= nil and locName ~= "" and locName ~= mapName
 end
 
-local function HookNecroGuardBlock()
+local function HookCriminalAbilityBlock()
     ZO_PreHook("ZO_ActionBar_CanUseActionSlots", function()
-        if not sv or not sv.showNecroBlock then return end
-        if GetUnitClassId("player") ~= NECROMANCER_CLASS_ID then return end
+        if not sv then return end
+        if not sv.showNecroBlock and not sv.showWWBlock and not sv.showVampBlock then return end
         if not IsInTownArea() then return end
 
         -- ACTION_BUTTON_3..8 are skill slots and ultimate (same pattern as Azurah)
@@ -200,14 +219,15 @@ local function HookNecroGuardBlock()
         if not bSlotID or bSlotID <= 2 or bSlotID >= 9 then return end
 
         local bSlotName = zo_strformat("<<t:1>>", GetSlotName(bSlotID))
-        local groupKey  = bSlotName and CRIMINAL_NECRO_ABILITIES[bSlotName]
-        if groupKey and sv[groupKey] then
+        local groupKey  = bSlotName and CRIMINAL_ABILITIES[bSlotName]
+        local masterKey = groupKey and ABILITY_MASTER[groupKey]
+        if masterKey and sv[masterKey] and sv[groupKey] then
             PlaySound(SOUNDS.ABILITY_FAILED)
             return true
         end
     end)
 end
--- ── end Necromancer Guard Protection ─────────────────────────────────────────
+-- ── end Criminal Ability Guard Protection ─────────────────────────────────────
 
 
 local function ShowMarker()
@@ -324,7 +344,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "3.1.1",
+        version            = "3.2.0",
     }
 
     local optionsData = {
@@ -531,6 +551,44 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Werewolf Guard Protection",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Werewolf Protection",
+            tooltip = "Block Werewolf Transformation near witnesses. Works for any class with Werewolf.",
+            getFunc = function() return sv.showWWBlock end,
+            setFunc = function(value) sv.showWWBlock = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Transformation",
+            tooltip  = "Block Werewolf Transformation, Werewolf Berserker, and Pack Leader near witnesses.",
+            disabled = function() return not sv.showWWBlock end,
+            getFunc  = function() return sv.wwBlockTransform end,
+            setFunc  = function(value) sv.wwBlockTransform = value end,
+        },
+        {
+            type = "header",
+            name = "Vampire Guard Protection",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Vampire Protection",
+            tooltip = "Block Vampire transformation near witnesses. Works for any class with Vampirism.",
+            getFunc = function() return sv.showVampBlock end,
+            setFunc = function(value) sv.showVampBlock = value end,
+        },
+        {
+            type     = "checkbox",
+            name     = "Block Blood Scion",
+            tooltip  = "Block Blood Scion and Perfect Blood Scion near witnesses.",
+            disabled = function() return not sv.showVampBlock end,
+            getFunc  = function() return sv.vampBlockTransform end,
+            setFunc  = function(value) sv.vampBlockTransform = value end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -565,6 +623,10 @@ local function RegisterSettings()
                 sv.necroBlockGraveGrasp = defaults.necroBlockGraveGrasp
                 sv.necroBlockGolem      = defaults.necroBlockGolem
                 sv.necroBlockColossus   = defaults.necroBlockColossus
+                sv.showWWBlock          = defaults.showWWBlock
+                sv.wwBlockTransform     = defaults.wwBlockTransform
+                sv.showVampBlock        = defaults.showVampBlock
+                sv.vampBlockTransform   = defaults.vampBlockTransform
                 ApplySettings()
                 if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
@@ -693,13 +755,17 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.necroBlockGraveGrasp == nil then sv.necroBlockGraveGrasp = defaults.necroBlockGraveGrasp end
     if sv.necroBlockGolem      == nil then sv.necroBlockGolem      = defaults.necroBlockGolem      end
     if sv.necroBlockColossus   == nil then sv.necroBlockColossus   = defaults.necroBlockColossus   end
+    if sv.showWWBlock          == nil then sv.showWWBlock          = defaults.showWWBlock          end
+    if sv.wwBlockTransform     == nil then sv.wwBlockTransform     = defaults.wwBlockTransform     end
+    if sv.showVampBlock        == nil then sv.showVampBlock        = defaults.showVampBlock        end
+    if sv.vampBlockTransform   == nil then sv.vampBlockTransform   = defaults.vampBlockTransform   end
 
     ApplySettings()
     CreateMarkerPool()
     RegisterSettings()
     HookNameplates()
     HookGCDCooldown()
-    HookNecroGuardBlock()
+    HookCriminalAbilityBlock()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,               OnCombatStateChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_RETICLE_TARGET_CHANGED,            OnTargetChanged)

@@ -36,11 +36,19 @@ Adds a cooldown animation directly over each action bar slot during the global c
 Hard-blocks criminal Necromancer abilities from firing while you are in a justice-enabled zone, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. Only activates for Necromancer class characters.
 
 Blocked ability groups (each toggleable independently):
+
+**Necromancer** (raise undead abilities):
 - **Skeletal Mage** — Skeletal Mage, Skeletal Archer, Skeletal Arcanist
 - **Blastbones** — Blastbones, Stalking Blastbones, Viscous Blastbones
 - **Grave Grasp** — Grave Grasp, Ghostly Embrace, Empowering Grasp
 - **Bone Golem** — Bone Golem, Pummeling Golem, Ravenous Golem
 - **Frozen Colossus** — Frozen Colossus, Glacial Colossus, Pestilent Colossus
+
+**Werewolf** (works for any class with lycanthropy):
+- **Transformation** — Werewolf Transformation, Werewolf Berserker, Pack Leader
+
+**Vampire** (works for any class with vampirism):
+- **Blood Scion** — Blood Scion, Perfect Blood Scion
 
 ## Installation
 
@@ -86,6 +94,10 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Block Grave Grasp | Block Grave Grasp and morphs near witnesses |
 | Block Bone Golem | Block Bone Golem and morphs near witnesses |
 | Block Frozen Colossus | Block Frozen Colossus and morphs near witnesses |
+| Enable Werewolf Protection | Block Werewolf Transformation near witnesses (any class) |
+| Block Transformation | Block Werewolf Transformation and morphs |
+| Enable Vampire Protection | Block Vampire transformation near witnesses (any class) |
+| Block Blood Scion | Block Blood Scion and Perfect Blood Scion near witnesses |
 
 Each feature section has a **Test** button to preview how that indicator looks without needing to be in combat. The Mara's Balm test runs a 5-second countdown so you can see the full red → green transition, and remains visible even with the settings panel open.
 
