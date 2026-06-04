@@ -27,20 +27,12 @@ Adds a cooldown animation directly over each action bar slot during the global c
 - **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
 
 ### Guard Protection
-Hard-blocks criminal abilities from firing while you are in a town or city, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. Each creature type has its own master toggle and per-ability-group sub-toggles.
+Hard-blocks criminal abilities from firing while you are in a town or city, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. A single toggle covers all criminal ability types — no per-class or per-ability configuration needed.
 
-**Necromancer** (raise undead abilities — Necromancer class only):
-- **Skeletal Mage** — Skeletal Mage, Skeletal Archer, Skeletal Arcanist
-- **Blastbones** — Blastbones, Stalking Blastbones, Viscous Blastbones
-- **Grave Grasp** — Grave Grasp, Ghostly Embrace, Empowering Grasp
-- **Bone Golem** — Bone Golem, Pummeling Golem, Ravenous Golem
-- **Frozen Colossus** — Frozen Colossus, Glacial Colossus, Pestilent Colossus
-
-**Werewolf** (any class with lycanthropy):
-- **Transformation** — Werewolf Transformation, Werewolf Berserker, Pack Leader
-
-**Vampire** (any class with vampirism):
-- **Blood Scion** — Blood Scion, Perfect Blood Scion
+Blocked abilities:
+- **Necromancer** — Skeletal Mage/Archer/Arcanist, Blastbones/Stalking/Viscous, Grave Grasp/Ghostly Embrace/Empowering Grasp, Bone Golem/Pummeling/Ravenous, Frozen/Glacial/Pestilent Colossus
+- **Werewolf** — Werewolf Transformation, Werewolf Berserker, Pack Leader
+- **Vampire** — Blood Scion, Perfect Blood Scion
 
 ## Installation
 
@@ -73,16 +65,7 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Desaturate Icons | Grey out ability icons during the GCD |
 | Ready Animation | Flash the slot when the GCD expires |
 | Show Potion Cooldown | Extend the GCD overlay to consumable slots |
-| Enable Guard Protection (Necro) | Block criminal Necromancer abilities in towns |
-| Block Skeletal Mage | Block Skeletal Mage and morphs near witnesses |
-| Block Blastbones | Block Blastbones and morphs near witnesses |
-| Block Grave Grasp | Block Grave Grasp and morphs near witnesses |
-| Block Bone Golem | Block Bone Golem and morphs near witnesses |
-| Block Frozen Colossus | Block Frozen Colossus and morphs near witnesses |
-| Enable Werewolf Protection | Block Werewolf Transformation in towns (any class) |
-| Block Transformation | Block Werewolf Transformation and morphs |
-| Enable Vampire Protection | Block Vampire transformation in towns (any class) |
-| Block Blood Scion | Block Blood Scion and Perfect Blood Scion |
+| Enable Guard Protection | Block all criminal abilities in towns (Necromancer, Werewolf, Vampire) |
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
