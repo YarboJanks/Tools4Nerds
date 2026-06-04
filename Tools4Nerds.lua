@@ -206,6 +206,32 @@ local function HookNecroGuardBlock()
 end
 -- ── end Necromancer Guard Protection ─────────────────────────────────────────
 
+-- Temporary diagnostic: /script Tools4Nerds_JusticeDebug()
+function Tools4Nerds_JusticeDebug()
+    local probes = {
+        {"IsInJusticeEnabledArea",        function() return IsInJusticeEnabledArea and IsInJusticeEnabledArea() end},
+        {"IsPlayerInJusticeEnabledZone",  function() return IsPlayerInJusticeEnabledZone and IsPlayerInJusticeEnabledZone() end},
+        {"IsInJusticeArea",               function() return IsInJusticeArea and IsInJusticeArea() end},
+        {"GetNumJusticeWitnesses",        function() return GetNumJusticeWitnesses and GetNumJusticeWitnesses() end},
+        {"EVENT_JUSTICE_ZONE_CHANGED",    function() return EVENT_JUSTICE_ZONE_CHANGED end},
+        {"JUSTICE_SYSTEM type",           function() return JUSTICE_SYSTEM and type(JUSTICE_SYSTEM) end},
+        {"GetCurrentZoneType",            function() return GetCurrentZoneType and GetCurrentZoneType() end},
+        {"GetZoneType(zoneIndex)",        function() return GetZoneType and GetZoneType(GetUnitZoneIndex("player")) end},
+        {"GetCurrentMapType",             function() return GetCurrentMapType and GetCurrentMapType() end},
+        {"GetCurrentZonePvpTerritoryType",function() return GetCurrentZonePvpTerritoryType and GetCurrentZonePvpTerritoryType() end},
+        {"GetZoneGamepadTerritoryType",   function() return GetZoneGamepadTerritoryType and GetZoneGamepadTerritoryType(GetUnitZoneIndex("player")) end},
+        {"IsGroupInstance",               function() return IsGroupInstance and IsGroupInstance() end},
+        {"GetGroupInstanceType",          function() return GetGroupInstanceType and GetGroupInstanceType() end},
+        {"IsInDungeon",                   function() return IsInDungeon and IsInDungeon() end},
+        {"ZoneId",                        function() return GetZoneId(GetUnitZoneIndex("player")) end},
+    }
+    for _, entry in ipairs(probes) do
+        local name, fn = entry[1], entry[2]
+        local ok, result = pcall(fn)
+        d("[T4N] " .. name .. " = " .. (ok and tostring(result) or "ERR:" .. tostring(result)))
+    end
+end
+
 local function ShowMarker()
     local ctrl = table.remove(markerPool)
     if not ctrl then return end
