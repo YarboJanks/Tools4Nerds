@@ -209,21 +209,20 @@ end
 -- Temporary diagnostic: /script Tools4Nerds_JusticeDebug()
 function Tools4Nerds_JusticeDebug()
     local probes = {
-        {"IsInJusticeEnabledArea",        function() return IsInJusticeEnabledArea and IsInJusticeEnabledArea() end},
-        {"IsPlayerInJusticeEnabledZone",  function() return IsPlayerInJusticeEnabledZone and IsPlayerInJusticeEnabledZone() end},
-        {"IsInJusticeArea",               function() return IsInJusticeArea and IsInJusticeArea() end},
-        {"GetNumJusticeWitnesses",        function() return GetNumJusticeWitnesses and GetNumJusticeWitnesses() end},
-        {"EVENT_JUSTICE_ZONE_CHANGED",    function() return EVENT_JUSTICE_ZONE_CHANGED end},
-        {"JUSTICE_SYSTEM type",           function() return JUSTICE_SYSTEM and type(JUSTICE_SYSTEM) end},
-        {"GetCurrentZoneType",            function() return GetCurrentZoneType and GetCurrentZoneType() end},
-        {"GetZoneType(zoneIndex)",        function() return GetZoneType and GetZoneType(GetUnitZoneIndex("player")) end},
-        {"GetCurrentMapType",             function() return GetCurrentMapType and GetCurrentMapType() end},
-        {"GetCurrentZonePvpTerritoryType",function() return GetCurrentZonePvpTerritoryType and GetCurrentZonePvpTerritoryType() end},
-        {"GetZoneGamepadTerritoryType",   function() return GetZoneGamepadTerritoryType and GetZoneGamepadTerritoryType(GetUnitZoneIndex("player")) end},
-        {"IsGroupInstance",               function() return IsGroupInstance and IsGroupInstance() end},
-        {"GetGroupInstanceType",          function() return GetGroupInstanceType and GetGroupInstanceType() end},
-        {"IsInDungeon",                   function() return IsInDungeon and IsInDungeon() end},
         {"ZoneId",                        function() return GetZoneId(GetUnitZoneIndex("player")) end},
+        {"GetSubZoneName",                function() return GetSubZoneName and GetSubZoneName() end},
+        {"GetZoneName",                   function() return GetZoneName and GetZoneName(GetUnitZoneIndex("player")) end},
+        {"GetMapName",                    function() return GetMapName and GetMapName() end},
+        {"GetPlayerLocationName",         function() return GetPlayerLocationName and GetPlayerLocationName() end},
+        {"GetCurrentZoneHouseId",         function() return GetCurrentZoneHouseId and GetCurrentZoneHouseId() end},
+        {"IsPlayerInOutlawsRefuge",       function() return IsPlayerInOutlawsRefuge and IsPlayerInOutlawsRefuge() end},
+        {"GetGroupType",                  function() return GetGroupType and GetGroupType() end},
+        {"IsActiveWorldPVPAvailable",     function() return IsActiveWorldPVPAvailable and IsActiveWorldPVPAvailable() end},
+        {"GetActivityId",                 function() return GetActivityId and GetActivityId() end},
+        {"GetCurrentLFGActivity",         function() return GetCurrentLFGActivity and GetCurrentLFGActivity() end},
+        {"GetZoneAverageLevel",           function() return GetZoneAverageLevel and GetZoneAverageLevel(GetUnitZoneIndex("player")) end},
+        {"GetZoneDifficulty",             function() return GetZoneDifficulty and GetZoneDifficulty(GetUnitZoneIndex("player")) end},
+        {"isInJusticeZone(local)",        function() return isInJusticeZone end},
     }
     for _, entry in ipairs(probes) do
         local name, fn = entry[1], entry[2]
