@@ -236,6 +236,7 @@ end
 -- ── Protector Hunter ─────────────────────────────────────────────────────────
 local ASYLUM_ZONE_ID      = 1000
 local STATIC_SHIELD_ID    = 96010
+local PROTECTOR_SPAWN_ID  = 64508  -- "Find Turret": gained by the Ordinated Protector on spawn
 local PROTECTOR_UNIT_NAME = "Ordinated Protector"
 local isInAsylum          = false
 
@@ -251,39 +252,20 @@ local function HideProtectorAlert()
     T4NProtectorContainer:SetHidden(true)
 end
 
-local function OnProtectorCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
-    abilityActionSlotType, sourceName, sourceType, targetName, targetType,
-    hitValue, powerType, damageType, log, sourceUnitId, targetUnitId, abilityId)
-
-    -- Shield faded = last protector dead → hide
-    if abilityId == STATIC_SHIELD_ID and result == ACTION_RESULT_EFFECT_FADED then
-        HideProtectorAlert()
-        return
-    end
-
+-- "Find Turret" (64508) is applied to the Ordinated Protector the instant it
+-- spawns. EVENT_EFFECT_CHANGED provides unitName directly — no targeting needed.
+local function OnProtectorEffectChanged(_, change, effectSlot, effectName, unitTag, beginTime, endTime,
+    stackCount, iconName, buffType, effectType, abilityType, statusEffectType, unitName, unitId, abilityId)
+    if change ~= EFFECT_RESULT_GAINED then return end
+    local cleanName = unitName and unitName:gsub("%^.*", "")
+    if cleanName ~= PROTECTOR_UNIT_NAME then return end
     if not T4NProtectorContainer:IsHidden() then return end
-    if not sv or not sv.showProtectorAlert then return end
+    if sv and sv.showProtectorAlert then ShowProtectorAlert() end
+end
 
-    local cleanSource = sourceName and sourceName:gsub("%^.*", "")
-    local cleanTarget = targetName and targetName:gsub("%^.*", "")
-
-    -- Earliest signal: protector begins casting the shield (ACTION_RESULT_BEGIN fires
-    -- at cast start, before the shield is applied to Olms)
-    if abilityId == STATIC_SHIELD_ID and result == ACTION_RESULT_BEGIN then
-        ShowProtectorAlert()
-        return
-    end
-
-    -- Also catch via name: any combat event involving the protector (e.g. a pet hits it)
-    if cleanSource == PROTECTOR_UNIT_NAME or cleanTarget == PROTECTOR_UNIT_NAME then
-        ShowProtectorAlert()
-        return
-    end
-
-    -- Fallback: shield applied to Olms
-    if abilityId == STATIC_SHIELD_ID and result == ACTION_RESULT_EFFECT_GAINED then
-        ShowProtectorAlert()
-    end
+-- Static Shield (96010) fades from Olms when the last protector is killed.
+local function OnProtectorShieldFaded()
+    HideProtectorAlert()
 end
 
 local function CheckAsylumZone()
@@ -292,8 +274,13 @@ local function CheckAsylumZone()
     if inAsylum == isInAsylum then return end
     isInAsylum = inAsylum
     if isInAsylum then
-        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorCombatEvent)
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED, OnProtectorEffectChanged)
+        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, PROTECTOR_SPAWN_ID)
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorShieldFaded)
+        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, STATIC_SHIELD_ID)
+        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, REGISTER_FILTER_COMBAT_RESULT, ACTION_RESULT_EFFECT_FADED)
     else
+        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED)
         EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT)
         HideProtectorAlert()
     end
