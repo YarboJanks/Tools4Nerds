@@ -234,9 +234,10 @@ end
 -- ── end Criminal Ability Guard Protection ─────────────────────────────────────
 
 -- ── Protector Hunter ─────────────────────────────────────────────────────────
-local ASYLUM_ZONE_ID   = 1000
-local STATIC_SHIELD_ID = 96010
-local isInAsylum       = false
+local ASYLUM_ZONE_ID      = 1000
+local STATIC_SHIELD_ID    = 96010
+local PROTECTOR_UNIT_NAME = "Ordinated Protector"
+local isInAsylum          = false
 
 local function ShowProtectorAlert()
     if not sv or not sv.showProtectorAlert then return end
@@ -253,13 +254,35 @@ end
 local function OnProtectorCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
     abilityActionSlotType, sourceName, sourceType, targetName, targetType,
     hitValue, powerType, damageType, log, sourceUnitId, targetUnitId, abilityId)
-    if abilityId ~= STATIC_SHIELD_ID then return end
-    d(string.format("[T4N Protector] result=%d abilityName=%s source=%s target=%s",
-        result, tostring(abilityName), tostring(sourceName), tostring(targetName)))
-    if result == ACTION_RESULT_EFFECT_GAINED then
-        ShowProtectorAlert()
-    elseif result == ACTION_RESULT_EFFECT_FADED then
+
+    -- Shield faded = last protector dead → hide
+    if abilityId == STATIC_SHIELD_ID and result == ACTION_RESULT_EFFECT_FADED then
         HideProtectorAlert()
+        return
+    end
+
+    if not T4NProtectorContainer:IsHidden() then return end
+    if not sv or not sv.showProtectorAlert then return end
+
+    local cleanSource = sourceName and sourceName:gsub("%^.*", "")
+    local cleanTarget = targetName and targetName:gsub("%^.*", "")
+
+    -- Earliest signal: protector begins casting the shield (ACTION_RESULT_BEGIN fires
+    -- at cast start, before the shield is applied to Olms)
+    if abilityId == STATIC_SHIELD_ID and result == ACTION_RESULT_BEGIN then
+        ShowProtectorAlert()
+        return
+    end
+
+    -- Also catch via name: any combat event involving the protector (e.g. a pet hits it)
+    if cleanSource == PROTECTOR_UNIT_NAME or cleanTarget == PROTECTOR_UNIT_NAME then
+        ShowProtectorAlert()
+        return
+    end
+
+    -- Fallback: shield applied to Olms
+    if abilityId == STATIC_SHIELD_ID and result == ACTION_RESULT_EFFECT_GAINED then
+        ShowProtectorAlert()
     end
 end
 
@@ -268,8 +291,6 @@ local function CheckAsylumZone()
         (GetZoneNameById(ASYLUM_ZONE_ID) == GetUnitZone("player")) or false
     if inAsylum == isInAsylum then return end
     isInAsylum = inAsylum
-    d(string.format("[T4N Protector] Zone: inAsylum=%s playerZone=%s",
-        tostring(isInAsylum), tostring(GetUnitZone and GetUnitZone("player"))))
     if isInAsylum then
         EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorCombatEvent)
     else
@@ -693,6 +714,14 @@ local function HookNameplates()
     if not ZO_Nameplates then return end
     ZO_PreHook(ZO_Nameplates, "UpdateNameplate", function(self, unitTag)
         UpdateNameplateIndicator(unitTag)
+        -- Protector Hunter: nameplate appears the moment the NPC spawns into the scene,
+        -- well before it walks into position and casts. Use this as the spawn signal.
+        if isInAsylum and sv and sv.showProtectorAlert and T4NProtectorContainer:IsHidden() then
+            local name = zo_strformat("<<t:1>>", GetUnitName(unitTag))
+            if name == PROTECTOR_UNIT_NAME then
+                ShowProtectorAlert()
+            end
+        end
     end)
 end
 
