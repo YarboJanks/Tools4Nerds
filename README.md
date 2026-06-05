@@ -79,4 +79,4 @@ Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOn
 - The CC immunity tracker only activates when you are in combat and have a player targeted.
 - In Battlegrounds and Cyrodiil, CC immunity is tracked via combat events (when you land a CC on your target) rather than buff reading, which may not be available in all PvP contexts.
 - The nameplate immunity dot uses the same combat-event inference and will appear on enemy nameplates during their CC immunity window.
-- Guard protection detects towns and cities by checking whether your current sub-location name differs from the zone map name. It does not block in dungeons, trials, or arenas. If you are at a named keep or outpost in Cyrodiil, the block may fire there too — disable the relevant toggle before PvP if needed.
+- Guard protection detects towns and cities by checking whether your current sub-location name differs from the zone map name. All trials, arenas, and standard dungeons are explicitly excluded. If you are at a named keep or outpost in Cyrodiil, the block may still fire there — disable the toggle before PvP if needed.

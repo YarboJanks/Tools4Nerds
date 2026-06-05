@@ -166,6 +166,28 @@ end
 -- ── end GCD Overlay ───────────────────────────────────────────────────────────
 
 -- ── Criminal Ability Guard Protection ────────────────────────────────────────
+-- Trials and arenas have named internal sub-areas (e.g. "Atrium" inside Asylum
+-- Sanctorium) that cause GetPlayerLocationName != GetMapName, fooling the town
+-- heuristic. Exclude all trials and arenas explicitly.
+local GROUP_INSTANCE_ZONES = {
+    ["Aetherian Archive"]    = true,
+    ["Hel Ra Citadel"]       = true,
+    ["Sanctum Ophidia"]      = true,
+    ["Maw of Lorkhaj"]       = true,
+    ["Halls of Fabrication"] = true,
+    ["Asylum Sanctorium"]    = true,
+    ["Cloudrest"]            = true,
+    ["Sunspire"]             = true,
+    ["Kyne's Aegis"]         = true,
+    ["Rockgrove"]            = true,
+    ["Dreadsail Reef"]       = true,
+    ["Sanity's Edge"]        = true,
+    ["Lucent Citadel"]       = true,
+    ["Maelstrom Arena"]      = true,
+    ["Vateshran Hollows"]    = true,
+    ["Dragonstar Arena"]     = true,
+}
+
 local CRIMINAL_ABILITIES = {
     -- Necromancer (raise undead near guards)
     ["Skeletal Mage"] = true, ["Skeletal Archer"] = true, ["Skeletal Arcanist"] = true,
@@ -179,10 +201,15 @@ local CRIMINAL_ABILITIES = {
     ["Blood Scion"] = true, ["Perfect Blood Scion"] = true,
 }
 
--- In towns/cities the player sub-location (district name) differs from the map
--- name. In dungeons, trials, and arenas they are always identical, so this
--- cleanly separates justice-zone content from group-instance content.
 local function IsInTownArea()
+    -- Native API (nil on some builds — use if available)
+    if IsInJusticeEnabledArea then return IsInJusticeEnabledArea() end
+    -- Trials and arenas have named sub-areas that differ from the zone name,
+    -- which would fool the heuristic below. Exclude them explicitly.
+    local playerZone = GetUnitZone and GetUnitZone("player")
+    if playerZone and GROUP_INSTANCE_ZONES[playerZone] then return false end
+    -- Heuristic: in towns the player sub-location (district/plaza name) differs
+    -- from the zone map name. In simple dungeons they match.
     local mapName = GetMapName and GetMapName()
     local locName = GetPlayerLocationName and GetPlayerLocationName()
     return mapName ~= nil and locName ~= nil and locName ~= "" and locName ~= mapName
@@ -227,6 +254,8 @@ local function OnProtectorCombatEvent(eventCode, result, isError, abilityName, a
     abilityActionSlotType, sourceName, sourceType, targetName, targetType,
     hitValue, powerType, damageType, log, sourceUnitId, targetUnitId, abilityId)
     if abilityId ~= STATIC_SHIELD_ID then return end
+    d(string.format("[T4N Protector] result=%d abilityName=%s source=%s target=%s",
+        result, tostring(abilityName), tostring(sourceName), tostring(targetName)))
     if result == ACTION_RESULT_EFFECT_GAINED then
         ShowProtectorAlert()
     elseif result == ACTION_RESULT_EFFECT_FADED then
@@ -239,6 +268,8 @@ local function CheckAsylumZone()
         (GetZoneNameById(ASYLUM_ZONE_ID) == GetUnitZone("player")) or false
     if inAsylum == isInAsylum then return end
     isInAsylum = inAsylum
+    d(string.format("[T4N Protector] Zone: inAsylum=%s playerZone=%s",
+        tostring(isInAsylum), tostring(GetUnitZone and GetUnitZone("player"))))
     if isInAsylum then
         EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorCombatEvent)
     else
