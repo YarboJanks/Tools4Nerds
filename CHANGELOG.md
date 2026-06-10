@@ -1,5 +1,47 @@
 # Changelog
 
+## [3.5.0] - 2026-06-11
+### Added
+- Debuff Counter — live count of negative effects on the player; flashes when 6 or more are active; draggable widget with saved position, color picker, and font size setting
+- Mara's Balm Tracker — shows MARAS in green when ready, red with countdown while on cooldown; auto-shows when 5+ Mara's Balm pieces are equipped and hides when the set is removed; draggable widget with saved position
+- Gorethief Stack Tracker — tracks Gorethief stacks (buff 260047); shows yellow while building (THIEF x7) and red at max (THIEF x10); auto-shows on first stack, hides at zero; draggable widget with saved position
+- `/t4n debug` — print live combat state, CC tracking, debuff count, Mara's equip status, and Gorethief stacks
+- `/t4n debugplayer` — log all effect changes on the player for 60 seconds (includes ability ID and stack count)
+- `/t4n debugsets` — print every equipped item set with name, set ID, and piece count
+- `/t4n debugcombat` — log all combat events involving the player for 60 seconds
+- `/t4n debugfx` — capture the next 15 `EVENT_EFFECT_CHANGED` events on any unit
+### Fixed
+- Guard Protection now uses an explicit exclusion list of all 16 trials and arenas (GROUP_INSTANCE_ZONES) so it never misfires inside group content where sub-location names differ from zone names
+### Improved
+- Protector Hunter detects Ordinated Protectors the instant they spawn via the "Find Turret" ability (EVENT_EFFECT_CHANGED, ability 64508) rather than waiting for Static Shield to appear on Saint Olms — alert fires significantly earlier
+- Protector Hunter adds a secondary nameplate hook as a fallback spawn signal
+- Both co-authors restored in addon manifest and settings panel
+
+## [3.4.0] - 2026-06-04
+### Added
+- Protector Hunter — displays a persistent on-screen alert when an Ordinated Protector is active in Veteran Asylum Sanctorium; clears automatically when the protector is killed
+
+## [3.3.0] - 2026-06-04
+### Changed
+- Guard Protection simplified to a single universal toggle covering all criminal ability types (Necromancer, Werewolf, Vampire); per-ability checkboxes removed
+
+## [3.2.0] - 2026-06-04
+### Added
+- Guard Protection extended to cover Werewolf (Werewolf Transformation, Werewolf Berserker, Pack Leader) and Vampire (Blood Scion, Perfect Blood Scion) abilities
+
+## [3.1.1] - 2026-06-04
+### Fixed
+- Guard Protection hard-block implemented via ZO_PreHook on ZO_ActionBar_CanUseActionSlots — prevents the ability from firing rather than just playing the fail sound
+- Justice zone detection uses GetPlayerLocationName instead of GetMapName to correctly identify towns and cities
+
+## [3.1.0] - 2026-06-01
+### Added
+- Guard Protection — hard-blocks Necromancer raise-undead abilities (Skeletal Mage, Blastbones, Grave Grasp, Bone Golem, Frozen Colossus and morphs) in towns and cities, preventing accidental guard aggro
+
+## [3.0.0] - 2026-05-25
+### Added
+- Global Cooldown (GCD) Overlay — hooks ESO's native cooldown animation onto each action bar slot during the global cooldown; configurable animation style (ascending, descending, radial), icon desaturation, ready flash, and optional potion slot coverage
+
 ## [2.7.0] - 2026-05-27
 ### Added
 - GCD overlay — hooks ESO's native cooldown animation onto each action bar slot during the global cooldown

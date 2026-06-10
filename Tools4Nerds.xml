@@ -20,19 +20,35 @@
       <Anchor point="TOPLEFT" relativeTo="GuiRoot" relativePoint="TOPLEFT" />
       <Anchor point="BOTTOMRIGHT" relativeTo="GuiRoot" relativePoint="BOTTOMRIGHT" />
     </TopLevelControl>
-    <TopLevelControl name="T4NNecroBlockContainer" hidden="true" mouseEnabled="false">
-      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="0" offsetY="-50" />
-      <Controls>
-        <Label name="T4NNecroBlockLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
-          <Anchor point="CENTER" relativeTo="T4NNecroBlockContainer" relativePoint="CENTER" />
-        </Label>
-      </Controls>
-    </TopLevelControl>
     <TopLevelControl name="T4NProtectorContainer" hidden="true" mouseEnabled="false">
       <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="0" offsetY="80" />
       <Controls>
         <Label name="T4NProtectorLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
           <Anchor point="CENTER" relativeTo="T4NProtectorContainer" relativePoint="CENTER" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
+    <TopLevelControl name="T4NDebuffContainer" hidden="true" mouseEnabled="true" movable="true" clampedToScreen="true">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="200" offsetY="0" />
+      <Controls>
+        <Label name="T4NDebuffLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="TOPLEFT" relativeTo="T4NDebuffContainer" relativePoint="TOPLEFT" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
+    <TopLevelControl name="T4NMarasContainer" hidden="true" mouseEnabled="true" movable="true" clampedToScreen="true">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="200" offsetY="50" />
+      <Controls>
+        <Label name="T4NMarasLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="TOPLEFT" relativeTo="T4NMarasContainer" relativePoint="TOPLEFT" />
+        </Label>
+      </Controls>
+    </TopLevelControl>
+    <TopLevelControl name="T4NGorethiefContainer" hidden="true" mouseEnabled="true" movable="true" clampedToScreen="true">
+      <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" offsetX="200" offsetY="100" />
+      <Controls>
+        <Label name="T4NGorethiefLabel" horizontalAlignment="CENTER" verticalAlignment="CENTER">
+          <Anchor point="TOPLEFT" relativeTo="T4NGorethiefContainer" relativePoint="TOPLEFT" />
         </Label>
       </Controls>
     </TopLevelControl>
