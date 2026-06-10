@@ -3,6 +3,12 @@ ZO_CreateStringId("SI_BINDING_NAME_TOOLS4NERDS_TOGGLE", "Toggle Tools 4 Nerds")
 local ADDON_NAME = "Tools4Nerds"
 local CC_IMMUNITY_ID = 28301
 local CC_IMMUNITY_DURATION = 7
+local MARAS_BALM_SET_ID     = 670
+local MARAS_BALM_ABILITY_ID = 184634
+local MARAS_BALM_COOLDOWN   = 28000  -- ms
+local GORETHIEF_SET_ID      = 855
+local GORETHIEF_BUFF_ID     = 260047
+local GORETHIEF_MAX_STACKS  = 10
 local POOL_SIZE = 10
 local MARKER_DURATION = 700
 local SPREAD_RADIUS = 60
@@ -14,11 +20,22 @@ local tickId = 0
 local tickScheduled = false
 local blockTimerId = 0
 local ccImmuneTimes = {}
+local debuffCount = 0
+local activeDebuffSlots = {}
+local debuffFlashTimeline
+local marasEndTime     = 0
+local marasTickId      = 0
+local marasTickPending = false
+local marasTesting     = false
+local marasEquipped    = false
+local gorethiefStacks   = 0
+local gorethiefTesting  = false
+local gorethiefEquipped = false
 
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showProtectorAlert" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showProtectorAlert", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize", "showGorethief", "gorethiefSize" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -44,6 +61,13 @@ local defaults = {
     gcdPotion     = false,
     showGuardBlock      = true,
     showProtectorAlert  = true,
+    showDebuffCount     = true,
+    debuffCountColor    = { r = 0.8, g = 0.4, b = 1.0 },
+    debuffCountSize     = 36,
+    showMaras           = true,
+    marasSize           = 36,
+    showGorethief       = true,
+    gorethiefSize       = 36,
 }
 
 local markerPool = {}
@@ -166,6 +190,28 @@ end
 -- ── end GCD Overlay ───────────────────────────────────────────────────────────
 
 -- ── Criminal Ability Guard Protection ────────────────────────────────────────
+-- Trials and arenas have named internal sub-areas (e.g. "Atrium" inside Asylum
+-- Sanctorium) that cause GetPlayerLocationName != GetMapName, fooling the town
+-- heuristic. Exclude all trials and arenas explicitly.
+local GROUP_INSTANCE_ZONES = {
+    ["Aetherian Archive"]    = true,
+    ["Hel Ra Citadel"]       = true,
+    ["Sanctum Ophidia"]      = true,
+    ["Maw of Lorkhaj"]       = true,
+    ["Halls of Fabrication"] = true,
+    ["Asylum Sanctorium"]    = true,
+    ["Cloudrest"]            = true,
+    ["Sunspire"]             = true,
+    ["Kyne's Aegis"]         = true,
+    ["Rockgrove"]            = true,
+    ["Dreadsail Reef"]       = true,
+    ["Sanity's Edge"]        = true,
+    ["Lucent Citadel"]       = true,
+    ["Maelstrom Arena"]      = true,
+    ["Vateshran Hollows"]    = true,
+    ["Dragonstar Arena"]     = true,
+}
+
 local CRIMINAL_ABILITIES = {
     -- Necromancer (raise undead near guards)
     ["Skeletal Mage"] = true, ["Skeletal Archer"] = true, ["Skeletal Arcanist"] = true,
@@ -179,10 +225,15 @@ local CRIMINAL_ABILITIES = {
     ["Blood Scion"] = true, ["Perfect Blood Scion"] = true,
 }
 
--- In towns/cities the player sub-location (district name) differs from the map
--- name. In dungeons, trials, and arenas they are always identical, so this
--- cleanly separates justice-zone content from group-instance content.
 local function IsInTownArea()
+    -- Native API (nil on some builds — use if available)
+    if IsInJusticeEnabledArea then return IsInJusticeEnabledArea() end
+    -- Trials and arenas have named sub-areas that differ from the zone name,
+    -- which would fool the heuristic below. Exclude them explicitly.
+    local playerZone = GetUnitZone and GetUnitZone("player")
+    if playerZone and GROUP_INSTANCE_ZONES[playerZone] then return false end
+    -- Heuristic: in towns the player sub-location (district/plaza name) differs
+    -- from the zone map name. In simple dungeons they match.
     local mapName = GetMapName and GetMapName()
     local locName = GetPlayerLocationName and GetPlayerLocationName()
     return mapName ~= nil and locName ~= nil and locName ~= "" and locName ~= mapName
@@ -207,9 +258,11 @@ end
 -- ── end Criminal Ability Guard Protection ─────────────────────────────────────
 
 -- ── Protector Hunter ─────────────────────────────────────────────────────────
-local ASYLUM_ZONE_ID   = 1000
-local STATIC_SHIELD_ID = 96010
-local isInAsylum       = false
+local ASYLUM_ZONE_ID      = 1000
+local STATIC_SHIELD_ID    = 96010
+local PROTECTOR_SPAWN_ID  = 64508  -- "Find Turret": gained by the Ordinated Protector on spawn
+local PROTECTOR_UNIT_NAME = "Ordinated Protector"
+local isInAsylum          = false
 
 local function ShowProtectorAlert()
     if not sv or not sv.showProtectorAlert then return end
@@ -223,15 +276,20 @@ local function HideProtectorAlert()
     T4NProtectorContainer:SetHidden(true)
 end
 
-local function OnProtectorCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
-    abilityActionSlotType, sourceName, sourceType, targetName, targetType,
-    hitValue, powerType, damageType, log, sourceUnitId, targetUnitId, abilityId)
-    if abilityId ~= STATIC_SHIELD_ID then return end
-    if result == ACTION_RESULT_EFFECT_GAINED then
-        ShowProtectorAlert()
-    elseif result == ACTION_RESULT_EFFECT_FADED then
-        HideProtectorAlert()
-    end
+-- "Find Turret" (64508) is applied to the Ordinated Protector the instant it
+-- spawns. EVENT_EFFECT_CHANGED provides unitName directly — no targeting needed.
+local function OnProtectorEffectChanged(_, change, effectSlot, effectName, unitTag, beginTime, endTime,
+    stackCount, iconName, buffType, effectType, abilityType, statusEffectType, unitName, unitId, abilityId)
+    if change ~= EFFECT_RESULT_GAINED then return end
+    local cleanName = unitName and unitName:gsub("%^.*", "")
+    if cleanName ~= PROTECTOR_UNIT_NAME then return end
+    if not T4NProtectorContainer:IsHidden() then return end
+    if sv and sv.showProtectorAlert then ShowProtectorAlert() end
+end
+
+-- Static Shield (96010) fades from Olms when the last protector is killed.
+local function OnProtectorShieldFaded()
+    HideProtectorAlert()
 end
 
 local function CheckAsylumZone()
@@ -240,8 +298,13 @@ local function CheckAsylumZone()
     if inAsylum == isInAsylum then return end
     isInAsylum = inAsylum
     if isInAsylum then
-        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorCombatEvent)
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED, OnProtectorEffectChanged)
+        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, PROTECTOR_SPAWN_ID)
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorShieldFaded)
+        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, STATIC_SHIELD_ID)
+        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, REGISTER_FILTER_COMBAT_RESULT, ACTION_RESULT_EFFECT_FADED)
     else
+        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED)
         EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT)
         HideProtectorAlert()
     end
@@ -271,7 +334,137 @@ local function ApplySettings()
     local font = string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.fontSize)
     T4NLabel:SetFont(font)
     T4NBlockLabel:SetFont(font)
+    T4NDebuffLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.debuffCountSize))
+    T4NMarasLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.marasSize))
+    T4NGorethiefLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", sv.gorethiefSize))
 end
+
+-- ── Debuff Counter ────────────────────────────────────────────────────────────
+local function CountDebuffs()
+    return debuffCount
+end
+
+local function SetDebuffWarning(active)
+    if not debuffFlashTimeline then return end
+    if active then
+        if not debuffFlashTimeline:IsPlaying() then
+            debuffFlashTimeline:PlayFromStart()
+        end
+    else
+        debuffFlashTimeline:Stop()
+        T4NDebuffContainer:SetAlpha(1)
+    end
+end
+
+local function UpdateDebuffCounter()
+    if not sv.showDebuffCount then
+        T4NDebuffContainer:SetHidden(true)
+        SetDebuffWarning(false)
+        return
+    end
+    local hudActive = SCENE_MANAGER:IsShowing("hud") or SCENE_MANAGER:IsShowing("hudui")
+    if not hudActive then
+        T4NDebuffContainer:SetHidden(true)
+        SetDebuffWarning(false)
+        return
+    end
+    T4NDebuffLabel:SetText(tostring(CountDebuffs()))
+    T4NDebuffLabel:SetColor(sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1)
+    T4NDebuffContainer:SetHidden(false)
+    SetDebuffWarning(CountDebuffs() >= 6)
+end
+-- ── end Debuff Counter ────────────────────────────────────────────────────────
+
+-- ── Mara's Balm Tracker ───────────────────────────────────────────────────────
+local function UpdateMarasIndicator()
+    if not sv.showMaras or (not marasEquipped and not marasTesting) then
+        T4NMarasContainer:SetHidden(true)
+        return
+    end
+    local hudActive = SCENE_MANAGER:IsShowing("hud") or SCENE_MANAGER:IsShowing("hudui")
+    if not hudActive and not marasTesting then
+        T4NMarasContainer:SetHidden(true)
+        return
+    end
+    local remaining = marasEndTime - GetFrameTimeSeconds()
+    if remaining > 0 then
+        T4NMarasLabel:SetText(string.format("MARAS %ds", math.ceil(remaining)))
+        T4NMarasLabel:SetColor(1, 0, 0, 1)
+        if not marasTickPending then
+            marasTickPending = true
+            local id = marasTickId
+            zo_callLater(function()
+                marasTickPending = false
+                if id == marasTickId then UpdateMarasIndicator() end
+            end, 100)
+        end
+    else
+        marasTesting = false
+        T4NMarasLabel:SetText("MARAS")
+        T4NMarasLabel:SetColor(0, 1, 0, 1)
+    end
+    T4NMarasContainer:SetHidden(false)
+end
+
+local function CheckMarasEquipped()
+    local count = 0
+    for slot = 0, 25 do
+        local itemLink = GetItemLink(BAG_WORN, slot)
+        if itemLink ~= "" then
+            local hasSet, _, _, _, _, setId = GetItemLinkSetInfo(itemLink)
+            if hasSet and setId == MARAS_BALM_SET_ID then
+                count = count + 1
+            end
+        end
+    end
+    local equipped = count >= 5
+    if equipped ~= marasEquipped then
+        marasEquipped = equipped
+        UpdateMarasIndicator()
+    end
+end
+-- ── end Mara's Balm Tracker ───────────────────────────────────────────────────
+
+-- ── Gorethief Stack Tracker ───────────────────────────────────────────────────
+local function UpdateGorethiefIndicator()
+    if not sv.showGorethief or (not gorethiefEquipped and not gorethiefTesting) then
+        gorethiefTesting = false
+        T4NGorethiefContainer:SetHidden(true)
+        return
+    end
+    local hudActive = SCENE_MANAGER:IsShowing("hud") or SCENE_MANAGER:IsShowing("hudui")
+    if not hudActive and not gorethiefTesting then
+        T4NGorethiefContainer:SetHidden(true)
+        return
+    end
+    gorethiefTesting = false
+    T4NGorethiefLabel:SetText(string.format("THIEF x%d", gorethiefStacks))
+    if gorethiefStacks >= GORETHIEF_MAX_STACKS then
+        T4NGorethiefLabel:SetColor(0, 1, 0, 1)
+    else
+        T4NGorethiefLabel:SetColor(1, 0, 0, 1)
+    end
+    T4NGorethiefContainer:SetHidden(false)
+end
+
+local function CheckGorethiefEquipped()
+    local count = 0
+    for slot = 0, 25 do
+        local itemLink = GetItemLink(BAG_WORN, slot)
+        if itemLink ~= "" then
+            local hasSet, _, _, _, _, setId = GetItemLinkSetInfo(itemLink)
+            if hasSet and setId == GORETHIEF_SET_ID then
+                count = count + 1
+            end
+        end
+    end
+    local equipped = count >= 5
+    if equipped ~= gorethiefEquipped then
+        gorethiefEquipped = equipped
+        UpdateGorethiefIndicator()
+    end
+end
+-- ── end Gorethief Stack Tracker ───────────────────────────────────────────────
 
 local function GetCCImmunityRemaining()
     for i = 1, GetNumBuffs("reticleover") do
@@ -362,8 +555,8 @@ local function RegisterSettings()
         type               = "panel",
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
-        author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r",
-        version            = "3.4.0",
+        author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r & |cFFDD00@|cFFD100b|cFFC500r|cFFB900o|cFFAD00k|cFFA200e|cFF9600a|cFF8A00s|cFF7E00s|cFF7300h|cFF6700a|cFF5B00c|cFF4F00h|cFF4400i|r",
+        version            = "3.5.0",
     }
 
     local optionsData = {
@@ -544,6 +737,170 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "Debuff Counter",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Debuff Counter",
+            tooltip = "Show a live count of negative effects currently on you.",
+            getFunc = function() return sv.showDebuffCount end,
+            setFunc = function(value)
+                sv.showDebuffCount = value
+                UpdateDebuffCounter()
+            end,
+        },
+        {
+            type    = "colorpicker",
+            name    = "Debuff Counter Color",
+            tooltip = "Color of the debuff counter text.",
+            getFunc = function() return sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1 end,
+            setFunc = function(r, g, b, a)
+                sv.debuffCountColor = { r = r, g = g, b = b }
+                UpdateDebuffCounter()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Counter Size",
+            tooltip = "Font size of the debuff counter.",
+            min     = 12,
+            max     = 72,
+            step    = 1,
+            getFunc = function() return sv.debuffCountSize end,
+            setFunc = function(value)
+                sv.debuffCountSize = value
+                T4NDebuffLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", value))
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Reset Position",
+            tooltip = "Move the debuff counter back to its default screen position.",
+            func    = function()
+                sv.debuffCountPos = nil
+                T4NDebuffContainer:ClearAnchors()
+                T4NDebuffContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 0)
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Test Debuff Counter",
+            tooltip = "Show the debuff counter with the current count.",
+            func    = function()
+                T4NDebuffLabel:SetText(tostring(CountDebuffs()))
+                T4NDebuffLabel:SetColor(sv.debuffCountColor.r, sv.debuffCountColor.g, sv.debuffCountColor.b, 1)
+                T4NDebuffContainer:SetHidden(false)
+                SetDebuffWarning(true)
+            end,
+        },
+        {
+            type = "header",
+            name = "Mara's Balm",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Mara's Balm Tracker",
+            tooltip = "Show MARAS in green when ready, red when on cooldown. Only visible when the set is equipped.",
+            getFunc = function() return sv.showMaras end,
+            setFunc = function(value)
+                sv.showMaras = value
+                UpdateMarasIndicator()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Text Size",
+            tooltip = "Font size for the Mara's Balm tracker text.",
+            min     = 12,
+            max     = 72,
+            step    = 1,
+            getFunc = function() return sv.marasSize end,
+            setFunc = function(value)
+                sv.marasSize = value
+                T4NMarasLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", value))
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Reset Position",
+            tooltip = "Move the Mara's Balm tracker back to its default screen position.",
+            func    = function()
+                sv.marasPos = nil
+                T4NMarasContainer:ClearAnchors()
+                T4NMarasContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 50)
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Test Mara's Balm Tracker",
+            tooltip = "Show the tracker on cooldown (red) for 5 seconds, then ready (green).",
+            func    = function()
+                marasTesting = true
+                marasEndTime = GetFrameTimeSeconds() + 5
+                marasTickId  = marasTickId + 1
+                T4NMarasContainer:SetHidden(false)
+                UpdateMarasIndicator()
+            end,
+        },
+        {
+            type = "header",
+            name = "Gorethief",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Gorethief Stack Tracker",
+            tooltip = "Show current Gorethief stack count. Appears when stacks are active, hides at 0.",
+            getFunc = function() return sv.showGorethief end,
+            setFunc = function(value)
+                sv.showGorethief = value
+                UpdateGorethiefIndicator()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Text Size",
+            tooltip = "Font size for the Gorethief stack counter text.",
+            min     = 12,
+            max     = 72,
+            step    = 1,
+            getFunc = function() return sv.gorethiefSize end,
+            setFunc = function(value)
+                sv.gorethiefSize = value
+                T4NGorethiefLabel:SetFont(string.format("EsoUI/Common/Fonts/Univers67.otf|%d|thick-outline", value))
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Reset Position",
+            tooltip = "Move the Gorethief tracker back to its default screen position.",
+            func    = function()
+                sv.gorethiefPos = nil
+                T4NGorethiefContainer:ClearAnchors()
+                T4NGorethiefContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 100)
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Test Gorethief Tracker",
+            tooltip = "Show a simulated stack count building to maximum.",
+            func    = function()
+                gorethiefTesting = true
+                gorethiefStacks = 7
+                UpdateGorethiefIndicator()
+                zo_callLater(function()
+                    gorethiefTesting = true
+                    gorethiefStacks = 10
+                    UpdateGorethiefIndicator()
+                    zo_callLater(function()
+                        gorethiefTesting = true
+                        gorethiefStacks = 0
+                        UpdateGorethiefIndicator()
+                    end, 3000)
+                end, 2000)
+            end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -575,7 +932,26 @@ local function RegisterSettings()
                 sv.showGuardBlock      = defaults.showGuardBlock
                 sv.showProtectorAlert  = defaults.showProtectorAlert
                 HideProtectorAlert()
+                sv.showDebuffCount  = defaults.showDebuffCount
+                sv.debuffCountColor = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b }
+                sv.debuffCountSize  = defaults.debuffCountSize
+                sv.debuffCountPos   = nil
+                T4NDebuffContainer:ClearAnchors()
+                T4NDebuffContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 0)
+                sv.showMaras = defaults.showMaras
+                sv.marasSize = defaults.marasSize
+                sv.marasPos  = nil
+                T4NMarasContainer:ClearAnchors()
+                T4NMarasContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 50)
+                sv.showGorethief = defaults.showGorethief
+                sv.gorethiefSize = defaults.gorethiefSize
+                sv.gorethiefPos  = nil
+                T4NGorethiefContainer:ClearAnchors()
+                T4NGorethiefContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 100)
                 ApplySettings()
+                UpdateDebuffCounter()
+                UpdateMarasIndicator()
+                UpdateGorethiefIndicator()
                 if LAM.RefreshPanel then LAM:RefreshPanel(ADDON_NAME .. "Panel") end
             end,
         },
@@ -662,6 +1038,14 @@ local function HookNameplates()
     if not ZO_Nameplates then return end
     ZO_PreHook(ZO_Nameplates, "UpdateNameplate", function(self, unitTag)
         UpdateNameplateIndicator(unitTag)
+        -- Protector Hunter: nameplate appears the moment the NPC spawns into the
+        -- scene, well before it walks into position and casts. Secondary signal.
+        if isInAsylum and sv and sv.showProtectorAlert and T4NProtectorContainer:IsHidden() then
+            local name = zo_strformat("<<t:1>>", GetUnitName(unitTag))
+            if name == PROTECTOR_UNIT_NAME then
+                ShowProtectorAlert()
+            end
+        end
     end)
 end
 
@@ -697,13 +1081,15 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.gcdDesaturate == nil then sv.gcdDesaturate = defaults.gcdDesaturate end
     if sv.gcdAnimation  == nil then sv.gcdAnimation  = defaults.gcdAnimation  end
     if sv.gcdPotion      == nil then sv.gcdPotion      = defaults.gcdPotion      end
-    if sv.showNecroBlock       == nil then sv.showNecroBlock       = defaults.showNecroBlock       end
-    if sv.necroBlockSkeletal   == nil then sv.necroBlockSkeletal   = defaults.necroBlockSkeletal   end
-    if sv.necroBlockBlastbones == nil then sv.necroBlockBlastbones = defaults.necroBlockBlastbones end
-    if sv.necroBlockGraveGrasp == nil then sv.necroBlockGraveGrasp = defaults.necroBlockGraveGrasp end
-    if sv.necroBlockGolem      == nil then sv.necroBlockGolem      = defaults.necroBlockGolem      end
     if sv.showGuardBlock      == nil then sv.showGuardBlock      = defaults.showGuardBlock      end
     if sv.showProtectorAlert  == nil then sv.showProtectorAlert  = defaults.showProtectorAlert  end
+    if sv.showDebuffCount     == nil then sv.showDebuffCount     = defaults.showDebuffCount     end
+    if sv.debuffCountColor    == nil then sv.debuffCountColor    = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b } end
+    if sv.debuffCountSize     == nil then sv.debuffCountSize     = defaults.debuffCountSize     end
+    if sv.showMaras           == nil then sv.showMaras           = defaults.showMaras           end
+    if sv.marasSize           == nil then sv.marasSize           = defaults.marasSize           end
+    if sv.showGorethief       == nil then sv.showGorethief       = defaults.showGorethief       end
+    if sv.gorethiefSize       == nil then sv.gorethiefSize       = defaults.gorethiefSize       end
 
     ApplySettings()
     CreateMarkerPool()
@@ -711,6 +1097,64 @@ local function OnAddOnLoaded(eventCode, addOnName)
     HookNameplates()
     HookGCDCooldown()
     HookCriminalAbilityBlock()
+
+    -- set up debuff counter (draggable, restore saved position)
+    T4NDebuffContainer:SetResizeToFitDescendents(true)
+    if sv.debuffCountPos then
+        T4NDebuffContainer:ClearAnchors()
+        T4NDebuffContainer:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sv.debuffCountPos.x, sv.debuffCountPos.y)
+    end
+    T4NDebuffContainer:SetHandler("OnMoveStop", function()
+        sv.debuffCountPos = { x = T4NDebuffContainer:GetLeft(), y = T4NDebuffContainer:GetTop() }
+    end)
+    UpdateDebuffCounter()
+
+    -- set up Mara's Balm tracker (draggable, restore saved position)
+    T4NMarasContainer:SetResizeToFitDescendents(true)
+    T4NMarasLabel:SetText("MARAS")
+    if sv.marasPos then
+        T4NMarasContainer:ClearAnchors()
+        T4NMarasContainer:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sv.marasPos.x, sv.marasPos.y)
+    end
+    T4NMarasContainer:SetHandler("OnMoveStop", function()
+        sv.marasPos = { x = T4NMarasContainer:GetLeft(), y = T4NMarasContainer:GetTop() }
+    end)
+    CheckMarasEquipped()
+
+    -- set up Gorethief tracker (draggable, restore saved position)
+    T4NGorethiefContainer:SetResizeToFitDescendents(true)
+    if sv.gorethiefPos then
+        T4NGorethiefContainer:ClearAnchors()
+        T4NGorethiefContainer:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sv.gorethiefPos.x, sv.gorethiefPos.y)
+    end
+    T4NGorethiefContainer:SetHandler("OnMoveStop", function()
+        sv.gorethiefPos = { x = T4NGorethiefContainer:GetLeft(), y = T4NGorethiefContainer:GetTop() }
+    end)
+
+    -- flashing warning animation for debuff counter (>= 6 debuffs)
+    debuffFlashTimeline = ANIMATION_MANAGER:CreateTimeline()
+    debuffFlashTimeline:SetPlaybackType(ANIMATION_PLAYBACK_LOOP)
+    local flashOut = debuffFlashTimeline:InsertAnimation(ANIMATION_ALPHA, T4NDebuffContainer, 0)
+    flashOut:SetStartAlpha(1)
+    flashOut:SetEndAlpha(0.15)
+    flashOut:SetDuration(200)
+    local flashIn = debuffFlashTimeline:InsertAnimation(ANIMATION_ALPHA, T4NDebuffContainer, 200)
+    flashIn:SetStartAlpha(0.15)
+    flashIn:SetEndAlpha(1)
+    flashIn:SetDuration(200)
+    debuffFlashTimeline:SetHandler("OnStop", function()
+        T4NDebuffContainer:SetAlpha(1)
+    end)
+
+    local function OnHUDSceneChange(oldState, newState)
+        UpdateDebuffCounter()
+        UpdateMarasIndicator()
+        UpdateGorethiefIndicator()
+    end
+    local hudScene   = SCENE_MANAGER:GetScene("hud")
+    local hudUIScene = SCENE_MANAGER:GetScene("hudui")
+    if hudScene   then hudScene:RegisterCallback("StateChange",   OnHUDSceneChange) end
+    if hudUIScene then hudUIScene:RegisterCallback("StateChange", OnHUDSceneChange) end
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_ACTIVATED, function() CheckAsylumZone() end)
     CheckAsylumZone()
@@ -721,6 +1165,153 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "reticleover")
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,                      OnCombatEvent)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVITY_FINDER_STATUS_UPDATE,     OnActivityFinderStatusUpdate)
+
+    -- debuff counter: track effect changes on the player
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Debuff", EVENT_EFFECT_CHANGED,
+        function(_, changeType, effectSlot, _, unitTag, _, _, _, _, _, effectType)
+            if unitTag ~= "player" then return end
+            if changeType == 1 then                             -- gained
+                if effectType == 2 and not activeDebuffSlots[effectSlot] then
+                    activeDebuffSlots[effectSlot] = true
+                    debuffCount = debuffCount + 1
+                end
+            elseif changeType == 2 then                         -- faded
+                if activeDebuffSlots[effectSlot] then
+                    activeDebuffSlots[effectSlot] = nil
+                    debuffCount = math.max(0, debuffCount - 1)
+                end
+            end
+            UpdateDebuffCounter()
+        end)
+
+    -- reset debuff state and re-check equips on zone change
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_DebuffReset", EVENT_PLAYER_ACTIVATED,
+        function()
+            activeDebuffSlots = {}
+            debuffCount       = 0
+            marasEndTime      = 0
+            marasTickId       = marasTickId + 1
+            gorethiefStacks   = 0
+            UpdateDebuffCounter()
+            CheckMarasEquipped()
+            CheckGorethiefEquipped()
+        end)
+
+    -- re-check equipped sets whenever worn bag changes
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_MarasEquip", EVENT_INVENTORY_SINGLE_SLOT_UPDATE,
+        function(_, bagId)
+            if bagId == BAG_WORN then
+                CheckMarasEquipped()
+                CheckGorethiefEquipped()
+            end
+        end)
+
+    -- Mara's Balm: detect proc via combat event targeting the player
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Maras", EVENT_COMBAT_EVENT,
+        function(_, _, _, _, _, _, _, _, targetName, _, _, _, _, _, _, _, abilityId)
+            if abilityId ~= MARAS_BALM_ABILITY_ID then return end
+            local cleanTarget = targetName:gsub("%^.*", "")
+            if cleanTarget ~= GetUnitName("player"):gsub("%^.*", "") then return end
+            marasEndTime = GetFrameTimeSeconds() + (MARAS_BALM_COOLDOWN / 1000)
+            marasTickId  = marasTickId + 1
+            UpdateMarasIndicator()
+        end)
+
+    -- Gorethief: track buff stacks on the player
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Gorethief", EVENT_EFFECT_CHANGED,
+        function(_, changeType, _, _, _, _, _, stackCount)
+            gorethiefStacks = (changeType == EFFECT_RESULT_FADED) and 0 or stackCount
+            UpdateGorethiefIndicator()
+        end)
+    EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Gorethief", EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, GORETHIEF_BUFF_ID)
+    EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Gorethief", EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
+
+    SLASH_COMMANDS["/t4n"] = function(args)
+        if args == "debug" then
+            local inCombat    = IsUnitInCombat("player")
+            local unitType    = GetUnitType("reticleover")
+            local isPlayer    = unitType == UNIT_TYPE_PLAYER
+            local numBuffs    = GetNumBuffs("reticleover")
+            local foundCC     = false
+            local ccRemaining = nil
+            for i = 1, numBuffs do
+                local _, _, timeEnding, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo("reticleover", i)
+                if abilityId == CC_IMMUNITY_ID then
+                    foundCC = true
+                    ccRemaining = math.max(0, timeEnding - GetFrameTimeSeconds())
+                end
+            end
+            local targetName = GetUnitName("reticleover"):gsub("%^.*", "")
+            local expiry = ccImmuneTimes[targetName]
+            local inferredRemaining = expiry and math.max(0, expiry - GetFrameTimeSeconds()) or nil
+            local numDebuffs = CountDebuffs()
+            d(string.format("[T4N] inCombat=%s | unitType=%d | isPlayer=%s | numBuffs=%d | numDebuffs=%d | buffCC=%s | buffRemaining=%s | inferredCC=%s | tickScheduled=%s | marasEquipped=%s | gorethiefStacks=%d",
+                tostring(inCombat), unitType, tostring(isPlayer), numBuffs, numDebuffs, tostring(foundCC),
+                ccRemaining and string.format("%.2f", ccRemaining) or "nil",
+                inferredRemaining and string.format("%.2f", inferredRemaining) or "nil",
+                tostring(tickScheduled), tostring(marasEquipped), gorethiefStacks))
+        elseif args == "debugplayer" then
+            d("[T4N] Logging all player effect changes for 60s...")
+            EVENT_MANAGER:RegisterForEvent("T4NDebugPlayer", EVENT_EFFECT_CHANGED,
+                function(_, changeType, effectSlot, effectName, unitTag, _, endTime, stackCount, _, _, effectType, abilityId)
+                    if unitTag ~= "player" then return end
+                    local remaining = endTime and (endTime - GetFrameTimeSeconds()) or 0
+                    d(string.format("[T4NPlayer] change=%d effect=%d slot=%d stack=%s time=%.1fs id=%s name=%s",
+                        changeType, effectType, effectSlot, tostring(stackCount), remaining, tostring(abilityId), tostring(effectName)))
+                end)
+            zo_callLater(function()
+                EVENT_MANAGER:UnregisterForEvent("T4NDebugPlayer", EVENT_EFFECT_CHANGED)
+                d("[T4N] debugplayer stopped")
+            end, 60000)
+        elseif args == "debugsets" then
+            d("[T4N] Equipped set info:")
+            local marasCount = 0
+            for slot = 0, 25 do
+                local itemLink = GetItemLink(BAG_WORN, slot)
+                if itemLink ~= "" then
+                    local hasSet, setName, _, numEquipped, maxEquipped, setId = GetItemLinkSetInfo(itemLink)
+                    if hasSet then
+                        d(string.format("[T4N] slot=%d setId=%d %d/%d name=%s", slot, setId, numEquipped, maxEquipped, tostring(setName)))
+                        if setId == MARAS_BALM_SET_ID then marasCount = marasCount + 1 end
+                    end
+                end
+            end
+            d(string.format("[T4N] Mara's Balm pieces found: %d (need 5) | Gorethief stacks: %d", marasCount, gorethiefStacks))
+        elseif args == "debugcombat" then
+            d("[T4N] Logging combat events involving player for 60s...")
+            EVENT_MANAGER:RegisterForEvent("T4NDebugCombat", EVENT_COMBAT_EVENT,
+                function(_, result, _, abilityName, _, _, sourceName, _, targetName, _, _, _, _, _, _, _, abilityId)
+                    local playerName = GetUnitName("player")
+                    if sourceName ~= playerName and targetName ~= playerName then return end
+                    d(string.format("[T4NCombat] result=%d id=%d src=%s tgt=%s name=%s",
+                        result, abilityId, tostring(sourceName), tostring(targetName), tostring(abilityName)))
+                end)
+            zo_callLater(function()
+                EVENT_MANAGER:UnregisterForEvent("T4NDebugCombat", EVENT_COMBAT_EVENT)
+                d("[T4N] debugcombat stopped")
+            end, 60000)
+        elseif args == "debugfx" then
+            local count = 0
+            local limit = 15
+            d(string.format("[T4N] Listening for next %d effect change events on any unit...", limit))
+            EVENT_MANAGER:RegisterForEvent("T4NDebugFX", EVENT_EFFECT_CHANGED,
+                function(_, changeType, effectSlot, effectName, unitTag, _, _, stackCount, _, buffType, effectType, abilityId)
+                    if count >= limit then
+                        EVENT_MANAGER:UnregisterForEvent("T4NDebugFX", EVENT_EFFECT_CHANGED)
+                        return
+                    end
+                    count = count + 1
+                    d(string.format("[T4NFX %d] unit=%-12s change=%-3s effect=%-3s slot=%s stack=%s id=%s name=%s",
+                        count, tostring(unitTag), tostring(changeType), tostring(effectType), tostring(effectSlot), tostring(stackCount), tostring(abilityId), tostring(effectName)))
+                end)
+            zo_callLater(function()
+                EVENT_MANAGER:UnregisterForEvent("T4NDebugFX", EVENT_EFFECT_CHANGED)
+                d("[T4N] debugfx stopped (timeout)")
+            end, 30000)
+        else
+            d("[T4N] Commands: /t4n debug | /t4n debugfx | /t4n debugplayer | /t4n debugcombat | /t4n debugsets")
+        end
+    end
 end
 
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
