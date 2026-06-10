@@ -35,7 +35,7 @@ local gorethiefEquipped = false
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showProtectorAlert", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize", "showGorethief", "gorethiefSize" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize", "showGorethief", "gorethiefSize" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -60,7 +60,6 @@ local defaults = {
     gcdAnimation  = false,
     gcdPotion     = false,
     showGuardBlock      = true,
-    showProtectorAlert  = true,
     showDebuffCount     = true,
     debuffCountColor    = { r = 0.8, g = 0.4, b = 1.0 },
     debuffCountSize     = 36,
@@ -256,60 +255,6 @@ local function HookCriminalAbilityBlock()
     end)
 end
 -- ── end Criminal Ability Guard Protection ─────────────────────────────────────
-
--- ── Protector Hunter ─────────────────────────────────────────────────────────
-local ASYLUM_ZONE_ID      = 1000
-local STATIC_SHIELD_ID    = 96010
-local PROTECTOR_SPAWN_ID  = 64508  -- "Find Turret": gained by the Ordinated Protector on spawn
-local PROTECTOR_UNIT_NAME = "Ordinated Protector"
-local isInAsylum          = false
-
-local function ShowProtectorAlert()
-    if not sv or not sv.showProtectorAlert then return end
-    T4NProtectorLabel:SetFont("EsoUI/Common/Fonts/Univers67.otf|36|thick-outline")
-    T4NProtectorLabel:SetText("ORDINATED PROTECTOR")
-    T4NProtectorLabel:SetColor(1, 0.35, 0, 1)
-    T4NProtectorContainer:SetHidden(false)
-end
-
-local function HideProtectorAlert()
-    T4NProtectorContainer:SetHidden(true)
-end
-
--- "Find Turret" (64508) is applied to the Ordinated Protector the instant it
--- spawns. EVENT_EFFECT_CHANGED provides unitName directly — no targeting needed.
-local function OnProtectorEffectChanged(_, change, effectSlot, effectName, unitTag, beginTime, endTime,
-    stackCount, iconName, buffType, effectType, abilityType, statusEffectType, unitName, unitId, abilityId)
-    if change ~= EFFECT_RESULT_GAINED then return end
-    local cleanName = unitName and unitName:gsub("%^.*", "")
-    if cleanName ~= PROTECTOR_UNIT_NAME then return end
-    if not T4NProtectorContainer:IsHidden() then return end
-    if sv and sv.showProtectorAlert then ShowProtectorAlert() end
-end
-
--- Static Shield (96010) fades from Olms when the last protector is killed.
-local function OnProtectorShieldFaded()
-    HideProtectorAlert()
-end
-
-local function CheckAsylumZone()
-    local inAsylum = GetZoneNameById and GetUnitZone and
-        (GetZoneNameById(ASYLUM_ZONE_ID) == GetUnitZone("player")) or false
-    if inAsylum == isInAsylum then return end
-    isInAsylum = inAsylum
-    if isInAsylum then
-        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED, OnProtectorEffectChanged)
-        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, PROTECTOR_SPAWN_ID)
-        EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, OnProtectorShieldFaded)
-        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, STATIC_SHIELD_ID)
-        EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT, REGISTER_FILTER_COMBAT_RESULT, ACTION_RESULT_EFFECT_FADED)
-    else
-        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_ProtectorEffect", EVENT_EFFECT_CHANGED)
-        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Protector", EVENT_COMBAT_EVENT)
-        HideProtectorAlert()
-    end
-end
--- ── end Protector Hunter ──────────────────────────────────────────────────────
 
 
 local function ShowMarker()
@@ -723,20 +668,6 @@ local function RegisterSettings()
         },
         {
             type = "header",
-            name = "Protector Hunter",
-        },
-        {
-            type    = "checkbox",
-            name    = "Enable Protector Alert",
-            tooltip = "Show a persistent on-screen alert when an Ordinated Protector spawns in Asylum Sanctorium (vAS). The alert clears automatically when the protector is killed.",
-            getFunc = function() return sv.showProtectorAlert end,
-            setFunc = function(value)
-                sv.showProtectorAlert = value
-                if not value then HideProtectorAlert() end
-            end,
-        },
-        {
-            type = "header",
             name = "Debuff Counter",
         },
         {
@@ -930,8 +861,6 @@ local function RegisterSettings()
                 sv.gcdAnimation  = defaults.gcdAnimation
                 sv.gcdPotion     = defaults.gcdPotion
                 sv.showGuardBlock      = defaults.showGuardBlock
-                sv.showProtectorAlert  = defaults.showProtectorAlert
-                HideProtectorAlert()
                 sv.showDebuffCount  = defaults.showDebuffCount
                 sv.debuffCountColor = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b }
                 sv.debuffCountSize  = defaults.debuffCountSize
@@ -1038,14 +967,6 @@ local function HookNameplates()
     if not ZO_Nameplates then return end
     ZO_PreHook(ZO_Nameplates, "UpdateNameplate", function(self, unitTag)
         UpdateNameplateIndicator(unitTag)
-        -- Protector Hunter: nameplate appears the moment the NPC spawns into the
-        -- scene, well before it walks into position and casts. Secondary signal.
-        if isInAsylum and sv and sv.showProtectorAlert and T4NProtectorContainer:IsHidden() then
-            local name = zo_strformat("<<t:1>>", GetUnitName(unitTag))
-            if name == PROTECTOR_UNIT_NAME then
-                ShowProtectorAlert()
-            end
-        end
     end)
 end
 
@@ -1082,7 +1003,6 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.gcdAnimation  == nil then sv.gcdAnimation  = defaults.gcdAnimation  end
     if sv.gcdPotion      == nil then sv.gcdPotion      = defaults.gcdPotion      end
     if sv.showGuardBlock      == nil then sv.showGuardBlock      = defaults.showGuardBlock      end
-    if sv.showProtectorAlert  == nil then sv.showProtectorAlert  = defaults.showProtectorAlert  end
     if sv.showDebuffCount     == nil then sv.showDebuffCount     = defaults.showDebuffCount     end
     if sv.debuffCountColor    == nil then sv.debuffCountColor    = { r = defaults.debuffCountColor.r, g = defaults.debuffCountColor.g, b = defaults.debuffCountColor.b } end
     if sv.debuffCountSize     == nil then sv.debuffCountSize     = defaults.debuffCountSize     end
@@ -1155,9 +1075,6 @@ local function OnAddOnLoaded(eventCode, addOnName)
     local hudUIScene = SCENE_MANAGER:GetScene("hudui")
     if hudScene   then hudScene:RegisterCallback("StateChange",   OnHUDSceneChange) end
     if hudUIScene then hudUIScene:RegisterCallback("StateChange", OnHUDSceneChange) end
-
-    EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_ACTIVATED, function() CheckAsylumZone() end)
-    CheckAsylumZone()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,               OnCombatStateChanged)
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_RETICLE_TARGET_CHANGED,            OnTargetChanged)
