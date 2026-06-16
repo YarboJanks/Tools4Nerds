@@ -2,7 +2,7 @@
   <img src="header.svg" alt="Tools 4 Nerds" width="860"/>
 </div>
 
-An Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, set trackers, queue pop-ups, global cooldown tracking, and criminal ability blocking for Necromancer, Werewolf, and Vampire.
+An Elder Scrolls Online addon that surfaces combat information you'd otherwise have to guess at — CC immunity windows, blocked attacks, critical hits, set trackers, queue pop-ups, global cooldown tracking, criminal ability blocking, and DK ultimate alerts.
 
 ## Features
 
@@ -22,7 +22,17 @@ Shows a live count of negative effects currently on your character. Flashes when
 Tracks the cooldown on Mara's Balm. Only visible when the set is equipped (5-piece detection). Shows **MARAS** in green when the proc is available and **MARAS Xs** in red during the cooldown. Draggable widget with saved position.
 
 ### Gorethief Stack Tracker [PvP]
-Tracks your Gorethief stack count. Appears automatically when stacks are active and hides at zero. Shows the count in yellow while building (**THIEF x7**) and switches to red when you hit the 10-stack maximum. Draggable widget with saved position.
+Tracks your Gorethief stack count. Appears automatically when stacks are active and hides at zero. Shows the count in red while building (**THIEF x7**) and switches to green when you hit the 10-stack maximum. Draggable widget with saved position.
+
+### DK Corrosive Armor Alert [PvP]
+Shows a large on-screen alert when you take damage from a Dragonknight's **Corrosive Armor** or **Onslaught** ultimate. Corrosive Armor reflects your own damage back at you — this alert gives you instant feedback to stop attacking before wasting resources.
+
+- Tracks **multiple simultaneous sources** — if two DKs have Corrosive Armor active, the alert shows **CORROSIVE ARMOR x2**
+- Corrosive alert stays visible for 3 seconds after the last incoming tick
+- Onslaught alert stays visible for 8 seconds
+- Optional sound on detection
+- Fully positionable — adjust X/Y offset, width, height, and scale in settings
+- Test button in settings to preview the alert window
 
 ### Auto Queue Accept [PvP/PvE]
 Automatically accepts dungeon and PvP queue pop-ups so you never miss a ready check.
@@ -34,9 +44,6 @@ Adds a cooldown animation directly over each action bar slot during the global c
 - **Icon desaturation** — greys out ability icons during the GCD
 - **Ready animation** — flashes the slot when the GCD expires
 - **Potion cooldown** — optionally extends the overlay to consumable slots (off by default)
-
-### Protector Hunter [PvE]
-Displays a persistent on-screen alert ("ORDINATED PROTECTOR") the moment an Ordinated Protector spawns in the Veteran Asylum Sanctorium (vAS) trial. Detection uses the spawn ability fired the instant the NPC enters the arena — earlier than waiting for it to walk into position. The alert clears automatically when the last protector is killed. Only active inside Asylum Sanctorium — no configuration needed beyond the toggle.
 
 ### Guard Protection [PvE/Overland]
 Hard-blocks criminal abilities from firing while you are in a town or city, preventing accidental bounties and guard aggro. When you press a blocked ability's keybind, it plays the ability-failed sound and does nothing. A single toggle covers all criminal ability types — no per-class or per-ability configuration needed.
@@ -71,6 +78,12 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Enable Crit Hit Marker | Toggle the crit overlay |
 | Marker Size | Size of the crit marker in pixels |
 | Marker Color | Color tint of the crit marker (white = no tint) |
+| Enable GCD Overlay | Toggle the global cooldown animation on action bar slots |
+| GCD Animation Style | Ascending, Descending, or Radial cooldown animation |
+| Desaturate Icons | Grey out ability icons during the GCD |
+| Ready Animation | Flash the slot when the GCD expires |
+| Show Potion Cooldown | Extend the GCD overlay to consumable slots |
+| Enable Guard Protection | Block all criminal abilities in towns (Necromancer, Werewolf, Vampire) |
 | Enable Debuff Counter | Toggle the live negative-effect counter |
 | Debuff Counter Color | Color of the debuff counter text |
 | Counter Size | Font size of the debuff counter |
@@ -78,14 +91,13 @@ Open **Settings → AddOns → Tools 4 Nerds** to configure each feature:
 | Text Size (Mara's) | Font size for the Mara's Balm tracker |
 | Enable Gorethief Stack Tracker | Toggle the Gorethief stack counter (appears when stacks are active) |
 | Text Size (Gorethief) | Font size for the Gorethief stack counter |
+| Enable Corrosive Armor Alert | Toggle the DK Corrosive Armor / Onslaught alert overlay |
+| Play Sound (Corrosive) | Play a sound when Corrosive Armor or Onslaught hits you |
+| Horizontal / Vertical Position | Move the alert window left/right or up/down from center |
+| Alert Width / Height | Size of the alert window in pixels |
+| Alert Scale | Scale the entire alert window |
 | Auto Accept Queue | Toggle automatic queue acceptance |
 | Enable GCD Overlay | Toggle the global cooldown animation on action bar slots |
-| GCD Animation Style | Ascending, Descending, or Radial cooldown animation |
-| Desaturate Icons | Grey out ability icons during the GCD |
-| Ready Animation | Flash the slot when the GCD expires |
-| Show Potion Cooldown | Extend the GCD overlay to consumable slots |
-| Enable Guard Protection | Block all criminal abilities in towns (Necromancer, Werewolf, Vampire) |
-| Enable Protector Alert | Show a persistent alert when an Ordinated Protector spawns in vAS |
 
 ### Keybinding
 Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOns** to enable/disable the addon on the fly.
@@ -98,6 +110,7 @@ Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOn
 | `/t4n debugsets` | Print every equipped item set with name, set ID, and piece count |
 | `/t4n debugcombat` | Log all combat events involving your character for 60 seconds |
 | `/t4n debugfx` | Log the next 15 `EVENT_EFFECT_CHANGED` events on any unit |
+| `/t4n debugnameplates` | Inspect the nameplate control tree of the nearest unit (dev/diagnostic) |
 
 ## Notes
 
@@ -107,3 +120,4 @@ Assign a key to **Toggle Tools 4 Nerds** under **Settings → Controls → AddOn
 - Guard protection detects towns and cities by checking whether your current sub-location name differs from the zone map name, with an explicit exclusion list for all trials and arenas so it never misfires inside group content.
 - The Debuff Counter and set trackers (Mara's, Gorethief) are only visible on the HUD and HUD UI scenes — they hide automatically in menus and loading screens.
 - The Gorethief tracker and Mara's tracker widgets are draggable. Use the **Reset Position** buttons in settings to restore their default positions.
+- The DK Corrosive Armor alert window is positioned via sliders in settings. Use the **Test Alert** button to preview it and the **Reset Layout** button to restore defaults.
