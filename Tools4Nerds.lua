@@ -9,6 +9,11 @@ local MARAS_BALM_COOLDOWN   = 28000  -- ms
 local GORETHIEF_SET_ID      = 855
 local GORETHIEF_BUFF_ID     = 260047
 local GORETHIEF_MAX_STACKS  = 10
+local CORROSIVE_TICK_ABILITY_ID    = 17879
+local ONSLAUGHT_ABILITY_ID         = 83229
+local CORROSIVE_ALERT_DURATION_MS  = 3000
+local ONSLAUGHT_ALERT_DURATION_MS  = 8000
+local CORROSIVE_TIMER_NAME         = "Tools4Nerds_CorrosiveTimer"
 local POOL_SIZE = 10
 local MARKER_DURATION = 700
 local SPREAD_RADIUS = 60
@@ -32,10 +37,19 @@ local gorethiefStacks   = 0
 local gorethiefTesting  = false
 local gorethiefEquipped = false
 
+local corrosiveAlertWindow   = nil
+local corrosiveAlertLabel    = nil
+local activeCorrosiveSources = {}
+local corrosiveEndTimeMs     = 0
+local corrosiveActive        = false
+local onslaughtEndTimeMs     = 0
+local onslaughtActive        = false
+local corrosiveAlertTesting  = false
+
 local sv
 local accountSv
 
-local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize", "showGorethief", "gorethiefSize" }
+local SETTING_KEYS = { "fontSize", "showCC", "ccColor", "showBlock", "blockColor", "showCrit", "critSize", "critColor", "autoAccept", "showGCD", "gcdType", "gcdDesaturate", "gcdAnimation", "gcdPotion", "showGuardBlock", "showDebuffCount", "debuffCountColor", "debuffCountSize", "showMaras", "marasSize", "showGorethief", "gorethiefSize", "showCorrosiveAlert", "corrosiveAlertSound", "corrosiveAlertOffsetX", "corrosiveAlertOffsetY", "corrosiveAlertWidth", "corrosiveAlertHeight", "corrosiveAlertScale" }
 
 local function CopySettings(from, to)
     for _, key in ipairs(SETTING_KEYS) do
@@ -67,6 +81,13 @@ local defaults = {
     marasSize           = 36,
     showGorethief       = true,
     gorethiefSize       = 36,
+    showCorrosiveAlert  = true,
+    corrosiveAlertSound = true,
+    corrosiveAlertOffsetX = 0,
+    corrosiveAlertOffsetY = -220,
+    corrosiveAlertWidth   = 420,
+    corrosiveAlertHeight  = 90,
+    corrosiveAlertScale   = 1.0,
 }
 
 local markerPool = {}
@@ -411,6 +432,134 @@ local function CheckGorethiefEquipped()
 end
 -- ── end Gorethief Stack Tracker ───────────────────────────────────────────────
 
+-- ── DK Corrosive Armor Alert ──────────────────────────────────────────────────
+local function CreateCorrosiveAlertUI()
+    corrosiveAlertWindow = WINDOW_MANAGER:CreateTopLevelWindow("T4NCorrosiveAlertWindow")
+    corrosiveAlertWindow:SetDimensions(sv.corrosiveAlertWidth, sv.corrosiveAlertHeight)
+    corrosiveAlertWindow:SetAnchor(CENTER, GuiRoot, CENTER, sv.corrosiveAlertOffsetX, sv.corrosiveAlertOffsetY)
+    corrosiveAlertWindow:SetMovable(false)
+    corrosiveAlertWindow:SetMouseEnabled(false)
+    corrosiveAlertWindow:SetHidden(true)
+    corrosiveAlertWindow:SetDrawTier(DT_HIGH)
+    corrosiveAlertWindow:SetDrawLayer(DL_OVERLAY)
+
+    local bg = WINDOW_MANAGER:CreateControl(nil, corrosiveAlertWindow, CT_BACKDROP)
+    bg:SetAnchorFill(corrosiveAlertWindow)
+    bg:SetCenterColor(0, 0, 0, 0.75)
+    bg:SetEdgeColor(1, 0, 0, 1)
+    bg:SetEdgeTexture(nil, 2, 2, 2, 0)
+
+    corrosiveAlertLabel = WINDOW_MANAGER:CreateControl(nil, corrosiveAlertWindow, CT_LABEL)
+    corrosiveAlertLabel:SetFont("ZoFontWinH1")
+    corrosiveAlertLabel:SetColor(1, 0.15, 0.15, 1)
+    corrosiveAlertLabel:SetHorizontalAlignment(TEXT_ALIGN_CENTER)
+    corrosiveAlertLabel:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    corrosiveAlertLabel:SetAnchor(CENTER, corrosiveAlertWindow, CENTER, 0, 0)
+    corrosiveAlertLabel:SetText("CORROSIVE ARMOR")
+    corrosiveAlertWindow:SetScale(sv.corrosiveAlertScale)
+end
+
+local function ApplyCorrosiveAlertLayout()
+    if not corrosiveAlertWindow then return end
+    corrosiveAlertWindow:ClearAnchors()
+    corrosiveAlertWindow:SetAnchor(CENTER, GuiRoot, CENTER, sv.corrosiveAlertOffsetX, sv.corrosiveAlertOffsetY)
+    corrosiveAlertWindow:SetDimensions(sv.corrosiveAlertWidth, sv.corrosiveAlertHeight)
+    corrosiveAlertWindow:SetScale(sv.corrosiveAlertScale)
+end
+
+local function GetActiveCorrosiveCount()
+    local now = GetFrameTimeMilliseconds()
+    local count = 0
+    for sourceId, expireAt in pairs(activeCorrosiveSources) do
+        if expireAt <= now then
+            activeCorrosiveSources[sourceId] = nil
+        else
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function UpdateCorrosiveAlert()
+    if not corrosiveAlertLabel or not corrosiveAlertWindow then return end
+
+    if corrosiveAlertTesting then
+        corrosiveAlertLabel:SetText("CORROSIVE ARMOR")
+        corrosiveAlertWindow:SetHidden(false)
+        return
+    end
+
+    local now = GetFrameTimeMilliseconds()
+    local corrosiveCount = GetActiveCorrosiveCount()
+    local onslaughtStillActive = onslaughtActive and now < onslaughtEndTimeMs
+
+    if corrosiveCount > 0 then
+        corrosiveAlertLabel:SetText(corrosiveCount <= 1 and "CORROSIVE ARMOR" or ("CORROSIVE ARMOR x" .. tostring(corrosiveCount)))
+        corrosiveAlertWindow:SetHidden(false)
+        return
+    end
+
+    if onslaughtStillActive then
+        corrosiveAlertLabel:SetText("OnSlaught Ulti")
+        corrosiveAlertWindow:SetHidden(false)
+        return
+    end
+
+    corrosiveAlertWindow:SetHidden(true)
+end
+
+local function StopCorrosiveAlertsIfNeeded()
+    local now = GetFrameTimeMilliseconds()
+    local corrosiveCount = GetActiveCorrosiveCount()
+
+    if corrosiveActive and corrosiveCount <= 0 then
+        corrosiveActive = false
+        corrosiveEndTimeMs = 0
+        activeCorrosiveSources = {}
+    end
+
+    if onslaughtActive and now >= onslaughtEndTimeMs then
+        onslaughtActive = false
+        onslaughtEndTimeMs = 0
+    end
+
+    if not corrosiveActive and not onslaughtActive then
+        EVENT_MANAGER:UnregisterForUpdate(CORROSIVE_TIMER_NAME)
+    end
+end
+
+local function EnsureCorrosiveUpdateLoop()
+    EVENT_MANAGER:UnregisterForUpdate(CORROSIVE_TIMER_NAME)
+    EVENT_MANAGER:RegisterForUpdate(CORROSIVE_TIMER_NAME, 100, function()
+        StopCorrosiveAlertsIfNeeded()
+        UpdateCorrosiveAlert()
+    end)
+end
+
+local function StartOrRefreshCorrosiveAlert(sourceUnitId)
+    local now = GetFrameTimeMilliseconds()
+    local key = (sourceUnitId and sourceUnitId ~= "") and sourceUnitId or "unknown"
+    activeCorrosiveSources[key] = now + CORROSIVE_ALERT_DURATION_MS
+    corrosiveEndTimeMs = now + CORROSIVE_ALERT_DURATION_MS
+    corrosiveActive = true
+    EnsureCorrosiveUpdateLoop()
+    UpdateCorrosiveAlert()
+    if sv.corrosiveAlertSound then
+        PlaySound(SOUNDS.ABILITY_MAJOR_BUFF)
+    end
+end
+
+local function StartOrRefreshOnslaughtAlert()
+    onslaughtEndTimeMs = GetFrameTimeMilliseconds() + ONSLAUGHT_ALERT_DURATION_MS
+    onslaughtActive = true
+    EnsureCorrosiveUpdateLoop()
+    UpdateCorrosiveAlert()
+    if sv.corrosiveAlertSound then
+        PlaySound(SOUNDS.ABILITY_MAJOR_BUFF)
+    end
+end
+-- ── end DK Corrosive Armor Alert ─────────────────────────────────────────────
+
 local function GetCCImmunityRemaining()
     for i = 1, GetNumBuffs("reticleover") do
         local _, _, timeEnding, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo("reticleover", i)
@@ -501,7 +650,7 @@ local function RegisterSettings()
         name               = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         displayName        = "|cCC00FFToo|c0088BBls|c00CCAA 4 |cCC0099Ne|cFF66AArds|r",
         author             = "|cBF00FF@Y|c8F39F2ar|c6073E6bo|c30ACD9Ja|c01E5CDnks|r & |cFFDD00@|cFFD100b|cFFC500r|cFFB900o|cFFAD00k|cFFA200e|cFF9600a|cFF8A00s|cFF7E00s|cFF7300h|cFF6700a|cFF5B00c|cFF4F00h|cFF4400i|r",
-        version            = "3.5.0",
+        version            = "3.6.0",
     }
 
     local optionsData = {
@@ -832,6 +981,126 @@ local function RegisterSettings()
         },
         {
             type = "header",
+            name = "DK Corrosive Alert",
+        },
+        {
+            type    = "checkbox",
+            name    = "Enable Corrosive Armor Alert",
+            tooltip = "Show a large on-screen alert when you take damage from Corrosive Armor or Onslaught.",
+            getFunc = function() return sv.showCorrosiveAlert end,
+            setFunc = function(value)
+                sv.showCorrosiveAlert = value
+                if not value then
+                    corrosiveActive = false
+                    onslaughtActive = false
+                    activeCorrosiveSources = {}
+                    EVENT_MANAGER:UnregisterForUpdate(CORROSIVE_TIMER_NAME)
+                    if corrosiveAlertWindow then corrosiveAlertWindow:SetHidden(true) end
+                end
+            end,
+        },
+        {
+            type    = "checkbox",
+            name    = "Play Sound",
+            tooltip = "Play a sound when Corrosive Armor or Onslaught hits you.",
+            getFunc = function() return sv.corrosiveAlertSound end,
+            setFunc = function(value) sv.corrosiveAlertSound = value end,
+        },
+        {
+            type    = "slider",
+            name    = "Horizontal Position",
+            tooltip = "Move the alert window left or right from center.",
+            min     = -1000,
+            max     = 1000,
+            step    = 5,
+            getFunc = function() return sv.corrosiveAlertOffsetX end,
+            setFunc = function(value)
+                sv.corrosiveAlertOffsetX = value
+                ApplyCorrosiveAlertLayout()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Vertical Position",
+            tooltip = "Move the alert window up or down from center.",
+            min     = -1000,
+            max     = 1000,
+            step    = 5,
+            getFunc = function() return sv.corrosiveAlertOffsetY end,
+            setFunc = function(value)
+                sv.corrosiveAlertOffsetY = value
+                ApplyCorrosiveAlertLayout()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Alert Width",
+            tooltip = "Width of the alert window in pixels.",
+            min     = 200,
+            max     = 1000,
+            step    = 10,
+            getFunc = function() return sv.corrosiveAlertWidth end,
+            setFunc = function(value)
+                sv.corrosiveAlertWidth = value
+                ApplyCorrosiveAlertLayout()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Alert Height",
+            tooltip = "Height of the alert window in pixels.",
+            min     = 40,
+            max     = 300,
+            step    = 5,
+            getFunc = function() return sv.corrosiveAlertHeight end,
+            setFunc = function(value)
+                sv.corrosiveAlertHeight = value
+                ApplyCorrosiveAlertLayout()
+            end,
+        },
+        {
+            type    = "slider",
+            name    = "Alert Scale",
+            tooltip = "Scale the alert window (50 = 50%, 100 = normal, 200 = 200%).",
+            min     = 50,
+            max     = 200,
+            step    = 5,
+            getFunc = function() return math.floor((sv.corrosiveAlertScale or 1.0) * 100) end,
+            setFunc = function(value)
+                sv.corrosiveAlertScale = value / 100
+                ApplyCorrosiveAlertLayout()
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Reset Layout",
+            tooltip = "Restore default alert position and size.",
+            func    = function()
+                sv.corrosiveAlertOffsetX = defaults.corrosiveAlertOffsetX
+                sv.corrosiveAlertOffsetY = defaults.corrosiveAlertOffsetY
+                sv.corrosiveAlertWidth   = defaults.corrosiveAlertWidth
+                sv.corrosiveAlertHeight  = defaults.corrosiveAlertHeight
+                sv.corrosiveAlertScale   = defaults.corrosiveAlertScale
+                ApplyCorrosiveAlertLayout()
+            end,
+        },
+        {
+            type    = "button",
+            name    = "Test Alert",
+            tooltip = "Show the alert window for 3 seconds.",
+            func    = function()
+                if not corrosiveAlertWindow then return end
+                corrosiveAlertTesting = true
+                corrosiveAlertLabel:SetText("CORROSIVE ARMOR")
+                corrosiveAlertWindow:SetHidden(false)
+                zo_callLater(function()
+                    corrosiveAlertTesting = false
+                    UpdateCorrosiveAlert()
+                end, 3000)
+            end,
+        },
+        {
+            type = "header",
             name = "Queue",
         },
         {
@@ -877,6 +1146,19 @@ local function RegisterSettings()
                 sv.gorethiefPos  = nil
                 T4NGorethiefContainer:ClearAnchors()
                 T4NGorethiefContainer:SetAnchor(CENTER, GuiRoot, CENTER, 200, 100)
+                sv.showCorrosiveAlert    = defaults.showCorrosiveAlert
+                sv.corrosiveAlertSound   = defaults.corrosiveAlertSound
+                sv.corrosiveAlertOffsetX = defaults.corrosiveAlertOffsetX
+                sv.corrosiveAlertOffsetY = defaults.corrosiveAlertOffsetY
+                sv.corrosiveAlertWidth   = defaults.corrosiveAlertWidth
+                sv.corrosiveAlertHeight  = defaults.corrosiveAlertHeight
+                sv.corrosiveAlertScale   = defaults.corrosiveAlertScale
+                ApplyCorrosiveAlertLayout()
+                corrosiveActive = false
+                onslaughtActive = false
+                activeCorrosiveSources = {}
+                EVENT_MANAGER:UnregisterForUpdate(CORROSIVE_TIMER_NAME)
+                if corrosiveAlertWindow then corrosiveAlertWindow:SetHidden(true) end
                 ApplySettings()
                 UpdateDebuffCounter()
                 UpdateMarasIndicator()
@@ -1010,6 +1292,13 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if sv.marasSize           == nil then sv.marasSize           = defaults.marasSize           end
     if sv.showGorethief       == nil then sv.showGorethief       = defaults.showGorethief       end
     if sv.gorethiefSize       == nil then sv.gorethiefSize       = defaults.gorethiefSize       end
+    if sv.showCorrosiveAlert  == nil then sv.showCorrosiveAlert  = defaults.showCorrosiveAlert  end
+    if sv.corrosiveAlertSound == nil then sv.corrosiveAlertSound = defaults.corrosiveAlertSound end
+    if sv.corrosiveAlertOffsetX == nil then sv.corrosiveAlertOffsetX = defaults.corrosiveAlertOffsetX end
+    if sv.corrosiveAlertOffsetY == nil then sv.corrosiveAlertOffsetY = defaults.corrosiveAlertOffsetY end
+    if sv.corrosiveAlertWidth   == nil then sv.corrosiveAlertWidth   = defaults.corrosiveAlertWidth   end
+    if sv.corrosiveAlertHeight  == nil then sv.corrosiveAlertHeight  = defaults.corrosiveAlertHeight  end
+    if sv.corrosiveAlertScale   == nil then sv.corrosiveAlertScale   = defaults.corrosiveAlertScale   end
 
     ApplySettings()
     CreateMarkerPool()
@@ -1017,6 +1306,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     HookNameplates()
     HookGCDCooldown()
     HookCriminalAbilityBlock()
+    CreateCorrosiveAlertUI()
 
     -- set up debuff counter (draggable, restore saved position)
     T4NDebuffContainer:SetResizeToFitDescendents(true)
@@ -1142,6 +1432,26 @@ local function OnAddOnLoaded(eventCode, addOnName)
         end)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Gorethief", EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, GORETHIEF_BUFF_ID)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Gorethief", EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
+
+    -- DK Corrosive Armor / Onslaught: detect hits on the player
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Corrosive", EVENT_COMBAT_EVENT,
+        function(_, result, isError, _, _, _, _, _, _, targetType, hitValue, _, _, _, sourceUnitId, _, abilityId)
+            if not sv.showCorrosiveAlert then return end
+            if isError then return end
+            if targetType ~= COMBAT_UNIT_TYPE_PLAYER then return end
+            if not hitValue or hitValue <= 0 then return end
+            local isDamage = result == ACTION_RESULT_DAMAGE
+                or result == ACTION_RESULT_CRITICAL_DAMAGE
+                or result == ACTION_RESULT_DOT_TICK
+                or result == ACTION_RESULT_DOT_TICK_CRITICAL
+            if not isDamage then return end
+            if abilityId == CORROSIVE_TICK_ABILITY_ID then
+                StartOrRefreshCorrosiveAlert(sourceUnitId)
+            elseif abilityId == ONSLAUGHT_ABILITY_ID then
+                StartOrRefreshOnslaughtAlert()
+            end
+        end)
+    EVENT_MANAGER:AddFilterForEvent(ADDON_NAME .. "_Corrosive", EVENT_COMBAT_EVENT, REGISTER_FILTER_UNIT_TAG, "player")
 
     SLASH_COMMANDS["/t4n"] = function(args)
         if args == "debug" then
